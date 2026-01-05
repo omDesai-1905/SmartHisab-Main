@@ -7,7 +7,6 @@ import axios from 'axios';
 function Profile() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
-  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
