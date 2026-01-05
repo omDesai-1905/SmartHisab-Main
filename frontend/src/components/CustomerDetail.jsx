@@ -434,15 +434,6 @@ function CustomerDetail() {
                       >
                         {showPassword ? '👁️' : '👁️‍🗨️'}
                       </button>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(passwordData.password);
-                          showNotification('Password copied!', 'success');
-                        }}
-                        className="px-1.5 py-0.5 text-[10px] bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex-shrink-0"
-                      >
-                        Copy
-                      </button>
                     </div>
                   </div>
                   <div className="pt-1.5 border-t border-blue-200">

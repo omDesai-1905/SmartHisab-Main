@@ -39,7 +39,7 @@ export async function PUT(request, { params }) {
 
     const message = await Message.findByIdAndUpdate(
       messageId,
-      { isRead: true },
+      { isRead: false },
       { new: true }
     ).populate("userId", "name email mobileNumber businessName");
 
@@ -52,7 +52,7 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json(message);
   } catch (error) {
-    console.error("Error marking message as read:", error);
+    console.error("Error marking message as unread:", error);
     return NextResponse.json(
       { message: "Server error", error: error.message },
       { status: 500 }
