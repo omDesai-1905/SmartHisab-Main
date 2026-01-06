@@ -27,13 +27,6 @@ export const AdminAuthProvider = ({ children }) => {
         return;
       }
 
-      if (!API_BASE_URL || API_BASE_URL === 'undefined') {
-        console.error('API_BASE_URL is not configured for admin verification!');
-        localStorage.removeItem('adminToken');
-        setLoading(false);
-        return;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/admin/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -52,7 +45,6 @@ export const AdminAuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error checking admin auth:', error);
-      console.error('API_BASE_URL:', API_BASE_URL);
       localStorage.removeItem('adminToken');
     } finally {
       setLoading(false);
@@ -61,15 +53,7 @@ export const AdminAuthProvider = ({ children }) => {
 
   const adminLogin = async (email, password) => {
     try {
-      const loginUrl = `${API_BASE_URL}/api/admin/login`;
-      console.log('Attempting admin login to:', loginUrl);
-      
-      if (!API_BASE_URL || API_BASE_URL === 'undefined') {
-        console.error('API_BASE_URL is not configured!');
-        return { success: false, message: 'API URL not configured. Please set VITE_BASE_URL environment variable.' };
-      }
-      
-      const response = await fetch(loginUrl, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,8 +72,7 @@ export const AdminAuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Admin login error:', error);
-      console.error('API_BASE_URL:', API_BASE_URL);
-      return { success: false, message: `Network error: ${error.message}. Check if backend is accessible at ${API_BASE_URL}` };
+      return { success: false, message: 'Network error occurred' };
     }
   };
 

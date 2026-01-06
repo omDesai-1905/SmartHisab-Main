@@ -17,7 +17,6 @@ import CustomerLogin from './customer/CustomerLogin';
 import CustomerPortal from './customer/CustomerPortal';
 import CustomerMessages from './customer/CustomerMessages';
 import CustomerTransactions from './customer/CustomerTransactions';
-import DiagnosticInfo from './DiagnosticInfo';
 
 // Admin Components
 import AdminLogin from './admin/AdminLogin';
@@ -52,7 +51,6 @@ function App() {
       <AdminAuthProvider>
         <Router>
           <div className="App">
-            <DiagnosticInfo />
             <Routes>
               {/* User Routes */}
               <Route 
