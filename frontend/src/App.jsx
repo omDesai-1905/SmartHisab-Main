@@ -151,10 +151,10 @@ function App() {
               />
 
               {/* Customer Portal Routes */}
-              <Route path="/customer/login" element={<CustomerLogin />} />
-              <Route path="/customer/portal" element={<CustomerPortal />} />
-              <Route path="/customer/transactions" element={<CustomerTransactions />} />
-              <Route path="/customer/messages" element={<CustomerMessages />} />
+              <Route path="/customerpanel/login" element={<CustomerLogin />} />
+              <Route path="/customerpanel/dashboard" element={<CustomerPortal />} />
+              <Route path="/customerpanel/transactions" element={<CustomerTransactions />} />
+              <Route path="/customerpanel/messages" element={<CustomerMessages />} />
 
               {/* Admin Routes */}
               <Route 

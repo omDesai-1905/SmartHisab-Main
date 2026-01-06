@@ -26,7 +26,7 @@ const CustomerLogin = () => {
       localStorage.setItem("customerToken", response.data.token);
       localStorage.setItem("customerData", JSON.stringify(response.data.customer));
       
-      navigate("/customer/portal");
+      navigate("/customerpanel/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed. Please try again.");
     } finally {

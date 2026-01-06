@@ -18,7 +18,7 @@ const CustomerMessages = () => {
     const token = localStorage.getItem("customerToken");
 
     if (!token) {
-      navigate("/customer/login");
+      navigate("/customerpanel/login");
       return;
     }
 
@@ -39,7 +39,7 @@ const CustomerMessages = () => {
     } catch (error) {
       console.error("Error fetching messages:", error);
       if (error.response?.status === 401) {
-        navigate("/customer/login");
+        navigate("/customerpanel/login");
       }
     } finally {
       setLoading(false);

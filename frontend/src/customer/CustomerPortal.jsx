@@ -11,7 +11,7 @@ const CustomerPortal = () => {
   useEffect(() => {
     const token = localStorage.getItem("customerToken");
     if (!token) {
-      navigate("/customer/login");
+      navigate("/customerpanel/login");
       return;
     }
 
@@ -33,7 +33,7 @@ const CustomerPortal = () => {
     } catch (error) {
       console.error("Error fetching transactions:", error);
       if (error.response?.status === 401) {
-        navigate("/customer/login");
+        navigate("/customerpanel/login");
       }
     } finally {
       setLoading(false);
@@ -140,7 +140,7 @@ const CustomerPortal = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
-              onClick={() => navigate("/customer/transactions")}
+              onClick={() => navigate("/customerpanel/transactions")}
               className="p-6 rounded-xl border-2 border-blue-500 bg-blue-50 text-[#4E56C0] font-semibold text-base cursor-pointer flex items-center gap-4 transition-all hover:-translate-y-0.5 shadow-md shadow-blue-200"
             >
               <span className="text-3xl">📋</span>
@@ -153,7 +153,7 @@ const CustomerPortal = () => {
             </button>
 
             <button
-              onClick={() => navigate("/customer/messages")}
+              onClick={() => navigate("/customerpanel/messages")}
               className="p-6 rounded-xl border-2 border-green-500 bg-green-50 text-green-600 font-semibold text-base cursor-pointer flex items-center gap-4 transition-all hover:-translate-y-0.5 shadow-md shadow-green-200"
             >
               <span className="text-3xl">💬</span>

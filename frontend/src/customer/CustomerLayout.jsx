@@ -13,7 +13,7 @@ const CustomerLayout = ({ children, currentPage }) => {
     const customerData = localStorage.getItem("customerData");
 
     if (!token || !customerData) {
-      navigate("/customer/login");
+      navigate("/customerpanel/login");
       return;
     }
 
@@ -42,7 +42,7 @@ const CustomerLayout = ({ children, currentPage }) => {
   const handleLogout = () => {
     localStorage.removeItem("customerToken");
     localStorage.removeItem("customerData");
-    navigate("/customer/login");
+    navigate("/customerpanel/login");
   };
 
   return (
@@ -87,7 +87,7 @@ const CustomerLayout = ({ children, currentPage }) => {
           <nav>
             <button
               onClick={() => {
-                navigate("/customer/portal");
+                navigate("/customerpanel/dashboard");
                 setSidebarOpen(false);
               }}
               className={`w-full py-3.5 px-4 rounded-lg border-none font-semibold text-[0.95rem] cursor-pointer text-left mb-2 flex items-center gap-3 transition-all ${
@@ -101,7 +101,7 @@ const CustomerLayout = ({ children, currentPage }) => {
             </button>
             <button
               onClick={() => {
-                navigate("/customer/transactions");
+                navigate("/customerpanel/transactions");
                 setSidebarOpen(false);
               }}
               className={`w-full py-3.5 px-4 rounded-lg border-none font-semibold text-[0.95rem] cursor-pointer text-left mb-2 flex items-center gap-3 transition-all ${
@@ -115,7 +115,7 @@ const CustomerLayout = ({ children, currentPage }) => {
             </button>
             <button
               onClick={() => {
-                navigate("/customer/messages");
+                navigate("/customerpanel/messages");
                 setSidebarOpen(false);
               }}
               className={`w-full py-3.5 px-4 rounded-lg border-none font-semibold text-[0.95rem] cursor-pointer text-left flex items-center gap-3 transition-all ${

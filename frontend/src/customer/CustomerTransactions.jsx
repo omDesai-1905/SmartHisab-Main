@@ -13,7 +13,7 @@ const CustomerTransactions = () => {
     const token = localStorage.getItem("customerToken");
 
     if (!token) {
-      navigate("/customer/login");
+      navigate("/customerpanel/login");
       return;
     }
 
@@ -35,7 +35,7 @@ const CustomerTransactions = () => {
     } catch (error) {
       console.error("Error fetching transactions:", error);
       if (error.response?.status === 401) {
-        navigate("/customer/login");
+        navigate("/customerpanel/login");
       }
     } finally {
       setLoading(false);
