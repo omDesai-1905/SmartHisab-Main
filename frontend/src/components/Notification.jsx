@@ -1,5 +1,3 @@
-import React from 'react';
-
 function Notification({ notification, onClose }) {
   if (!notification) return null;
 

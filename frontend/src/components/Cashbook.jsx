@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from './Layout';
 import Notification from './Notification';
 import axios from 'axios';
@@ -34,6 +34,9 @@ function Cashbook() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedEntries, setSelectedEntries] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   useEffect(() => {
     fetchEntries();
@@ -56,6 +59,49 @@ function Cashbook() {
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedEntries([]);
+  };
+
+  const toggleEntrySelection = (entryId) => {
+    setSelectedEntries(prev => 
+      prev.includes(entryId)
+        ? prev.filter(id => id !== entryId)
+        : [...prev, entryId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedEntries.length === filteredEntries.length) {
+      setSelectedEntries([]);
+    } else {
+      setSelectedEntries(filteredEntries.map(e => e._id || e.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await Promise.all(
+        selectedEntries.map(entryId =>
+          axios.delete(`/api/cashbook/${entryId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        )
+      );
+      
+      setEntries(prev => prev.filter(e => !selectedEntries.includes(e._id || e.id)));
+      showNotification(`Successfully deleted ${selectedEntries.length} entry(ies)`);
+      setSelectedEntries([]);
+      setSelectionMode(false);
+      setShowBulkDeleteConfirm(false);
+    } catch (error) {
+      console.error('Error deleting entries:', error);
+      showNotification('Failed to delete some entries', 'error');
+    }
   };
 
   const validateEntry = () => {
@@ -91,7 +137,7 @@ function Cashbook() {
       };
 
       if (editingEntry) {
-        const response = await axios.post(`/api/cashbook/${editingEntry._id || editingEntry.id}`, entryData);
+        const response = await axios.put(`/api/cashbook/${editingEntry._id || editingEntry.id}`, entryData);
         setEntries(prev => prev.map(entry => 
           (entry._id || entry.id) === (editingEntry._id || editingEntry.id) ? response.data : entry
         ));
@@ -318,6 +364,42 @@ function Cashbook() {
           </div>
         </div>
 
+        {/* Selection Mode Controls */}
+        {entries.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button
+              onClick={toggleSelectionMode}
+              className={`px-3 md:px-6 py-2 md:py-2.5 rounded-lg font-medium text-sm md:text-base transition-all ${
+                selectionMode 
+                  ? 'bg-gray-500 hover:bg-gray-600 text-white' 
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              {selectionMode ? 'Cancel' : 'Select'}
+            </button>
+            
+            {selectionMode && (
+              <>
+                <button
+                  onClick={toggleSelectAll}
+                  className="px-3 md:px-6 py-2 md:py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium text-sm md:text-base transition-all"
+                >
+                  {selectedEntries.length === filteredEntries.length ? 'Deselect All' : 'Select All'}
+                </button>
+                
+                {selectedEntries.length > 0 && (
+                  <button
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                    className="px-3 md:px-6 py-2 md:py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm md:text-base transition-all whitespace-nowrap"
+                  >
+                    Delete ({selectedEntries.length})
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-gray-600">Loading entries...</div>
@@ -331,6 +413,9 @@ function Cashbook() {
               <table className="w-full">
                 <thead>
                   <tr>
+                    {selectionMode && (
+                      <th className="bg-gray-50 px-3 md:px-4 py-3 text-left font-semibold text-gray-700 border-b-2 border-gray-200 w-12"></th>
+                    )}
                     <th className="bg-gray-50 px-3 md:px-4 py-3 text-left font-semibold text-gray-700 border-b-2 border-gray-200">Date</th>
                     <th className="bg-gray-50 px-3 md:px-4 py-3 text-left font-semibold text-gray-700 border-b-2 border-gray-200 hidden md:table-cell">Description</th>
                     <th className="bg-gray-50 px-3 md:px-4 py-3 text-right font-semibold text-gray-700 border-b-2 border-gray-200">Income</th>
@@ -342,11 +427,29 @@ function Cashbook() {
                     <tr
                       key={entry._id || entry.id}
                       onClick={() => {
-                        setSelectedEntry(entry);
-                        setShowDetailModal(true);
+                        if (!selectionMode) {
+                          setSelectedEntry(entry);
+                          setShowDetailModal(true);
+                        }
                       }}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                      className={`border-b border-gray-100 transition-colors ${
+                        selectionMode 
+                          ? 'hover:bg-blue-50' 
+                          : 'hover:bg-gray-50 cursor-pointer'
+                      } ${
+                        selectedEntries.includes(entry._id || entry.id) ? 'bg-blue-100' : ''
+                      }`}
                     >
+                      {selectionMode && (
+                        <td className="px-3 md:px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedEntries.includes(entry._id || entry.id)}
+                            onChange={() => toggleEntrySelection(entry._id || entry.id)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                          />
+                        </td>
+                      )}
                       <td className="px-3 md:px-4 py-3 text-sm text-gray-900">{formatDate(entry.date)}</td>
                       <td className="px-3 md:px-4 py-3 text-sm text-gray-900 hidden md:table-cell">{entry.description}</td>
                       <td className="px-3 md:px-4 py-3 text-sm font-semibold text-green-600 text-right">
@@ -560,6 +663,34 @@ function Cashbook() {
                     className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
                   >
                     Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001] p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Confirm Bulk Delete</h2>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to delete {selectedEntries.length} entry(ies)? This action cannot be undone.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    onClick={() => setShowBulkDeleteConfirm(false)}
+                    className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleBulkDelete}
+                    className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Delete All
                   </button>
                 </div>
               </div>

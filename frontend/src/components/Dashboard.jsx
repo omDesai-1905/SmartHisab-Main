@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from './Layout';
 import Notification from './Notification';
@@ -92,7 +92,7 @@ function Dashboard() {
         setCustomers(prev => [...prev, { ...response.data, balance: 0 }]);
         
       } else {
-        response = await axios.post(`/api/customers/${selectedCustomer._id}`, {
+        response = await axios.put(`/api/customers/${selectedCustomer._id}`, {
           name: newCustomer.name.trim(),
           phone: newCustomer.phone.trim()
         });
@@ -108,9 +108,10 @@ function Dashboard() {
       setSelectedCustomer(null);
       setErrors({});
       setShowModal(false);
+      showNotification(`Customer ${modalType === 'add' ? 'added' : 'updated'} successfully`);
     } catch (error) {
       console.error('Error saving customer:', error);
-      setErrors({ submit: error.response?.data?.message || `Failed to ${modalType} customer` });
+      showNotification(error.response?.data?.message || `Failed to ${modalType} customer`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -305,12 +306,6 @@ function Dashboard() {
                   ×
                 </button>
               </div>
-
-              {errors.submit && (
-                <div className="mx-6 mt-4 p-3 rounded-lg bg-red-100 text-red-700 border border-red-200">
-                  {errors.submit}
-                </div>
-              )}
 
               <form onSubmit={handleCustomerSubmit} className="p-6">
                 <div className="mb-6">

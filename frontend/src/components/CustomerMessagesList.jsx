@@ -5,6 +5,10 @@ import Layout from "./Layout";
 const CustomerMessagesList = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [selectedMessages, setSelectedMessages] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   useEffect(() => {
     fetchMessages();
@@ -50,6 +54,69 @@ const CustomerMessagesList = () => {
     }
   };
 
+  const handleDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    
+    const token = localStorage.getItem("token");
+
+    try {
+      await axios.delete(
+        `/api/user/customer-messages/${messageToDelete}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setMessages(prev => prev.filter(msg => msg._id !== messageToDelete));
+      setShowDeleteConfirm(false);
+      setMessageToDelete(null);
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      alert("Failed to delete message.");
+    }
+  };
+
+  const toggleMessageSelection = (messageId) => {
+    setSelectedMessages(prev => 
+      prev.includes(messageId) 
+        ? prev.filter(id => id !== messageId)
+        : [...prev, messageId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedMessages.length === messages.length) {
+      setSelectedMessages([]);
+    } else {
+      setSelectedMessages(messages.map(msg => msg._id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedMessages.length === 0) return;
+    
+    const token = localStorage.getItem("token");
+
+    try {
+      await Promise.all(
+        selectedMessages.map(msgId =>
+          axios.delete(`/api/user/customer-messages/${msgId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        )
+      );
+
+      setMessages(prev => prev.filter(msg => !selectedMessages.includes(msg._id)));
+      setSelectedMessages([]);
+      setShowBulkDeleteConfirm(false);
+    } catch (error) {
+      console.error("Error deleting messages:", error);
+      alert("Failed to delete some messages.");
+    }
+  };
+
   if (loading) {
     return (
       <Layout currentPage="/customer-messages">
@@ -67,13 +134,49 @@ const CustomerMessagesList = () => {
     <Layout currentPage="/customer-messages">
     <div style={{ padding: '2rem', background: '#f5f7fa', minHeight: '100vh' }}>
       {/* Header Section */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', marginBottom: '0.5rem' }}>
-          Customer Messages
-        </h2>
-        <p style={{ fontSize: '1rem', color: '#6b7280' }}>
-          View and manage customer inquiries and complaints
-        </p>
+      <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', marginBottom: '0.5rem' }}>
+            Customer Messages
+          </h2>
+          <p style={{ fontSize: '1rem', color: '#6b7280' }}>
+            View and manage customer inquiries and complaints
+          </p>
+        </div>
+        {messages.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '600', color: '#4b5563' }}>
+              <input
+                type="checkbox"
+                checked={selectedMessages.length === messages.length && messages.length > 0}
+                onChange={toggleSelectAll}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              Select All
+            </label>
+            {selectedMessages.length > 0 && (
+              <button
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: 'white',
+                  fontWeight: '600',
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                🗑️ Delete Selected ({selectedMessages.length})
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Messages List */}
@@ -97,22 +200,44 @@ const CustomerMessagesList = () => {
               style={{
                 background: 'white',
                 borderRadius: '16px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                boxShadow: selectedMessages.includes(msg._id) ? '0 4px 12px rgba(59, 130, 246, 0.3)' : '0 1px 3px rgba(0,0,0,0.1)',
                 padding: '2rem',
                 transition: 'all 0.3s',
-                border: '1px solid #f3f4f6'
+                border: selectedMessages.includes(msg._id) ? '2px solid #3b82f6' : '1px solid #f3f4f6',
+                position: 'relative'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
+                if (!selectedMessages.includes(msg._id)) {
+                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                e.currentTarget.style.transform = 'translateY(0)';
+                if (!selectedMessages.includes(msg._id)) {
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
               }}
             >
+              {/* Checkbox for selection */}
+              <input
+                type="checkbox"
+                checked={selectedMessages.includes(msg._id)}
+                onChange={() => toggleMessageSelection(msg._id)}
+                style={{
+                  position: 'absolute',
+                  top: '1rem',
+                  left: '1rem',
+                  width: '20px',
+                  height: '20px',
+                  cursor: 'pointer',
+                  accentColor: '#3b82f6'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              
               {/* Message Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem', marginLeft: '2.5rem' }}>
                 <div style={{ flex: 1, minWidth: '250px' }}>
                   <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', marginBottom: '0.75rem' }}>
                     {msg.subject}
@@ -231,12 +356,184 @@ const CustomerMessagesList = () => {
                 >
                   <span>✓</span> Mark Resolved
                 </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMessageToDelete(msg._id);
+                    setShowDeleteConfirm(true);
+                  }}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    color: 'white',
+                    fontWeight: '600',
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(239, 68, 68, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(239, 68, 68, 0.3)';
+                  }}
+                >
+                  <span>🗑️</span> Delete
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
     </div>
+
+    {/* Delete Confirmation Modal */}
+    {showDeleteConfirm && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '2rem',
+          maxWidth: '400px',
+          width: '100%',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+        }}>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
+            Delete Message?
+          </h3>
+          <p style={{ fontSize: '1rem', color: '#6b7280', marginBottom: '1.5rem' }}>
+            Are you sure you want to delete this message? This action cannot be undone.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setMessageToDelete(null);
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                borderRadius: '8px',
+                border: '2px solid #e5e7eb',
+                background: 'white',
+                color: '#4b5563',
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteMessage}
+              style={{
+                padding: '0.75rem 1.5rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#ef4444',
+                color: 'white',
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Bulk Delete Confirmation Modal */}
+    {showBulkDeleteConfirm && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '2rem',
+          maxWidth: '400px',
+          width: '100%',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+        }}>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', marginBottom: '1rem' }}>
+            Delete {selectedMessages.length} Message{selectedMessages.length > 1 ? 's' : ''}?
+          </h3>
+          <p style={{ fontSize: '1rem', color: '#6b7280', marginBottom: '1.5rem' }}>
+            Are you sure you want to delete {selectedMessages.length} selected message{selectedMessages.length > 1 ? 's' : ''}? This action cannot be undone.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => {
+                setShowBulkDeleteConfirm(false);
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                borderRadius: '8px',
+                border: '2px solid #e5e7eb',
+                background: 'white',
+                color: '#4b5563',
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              style={{
+                padding: '0.75rem 1.5rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#ef4444',
+                color: 'white',
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Delete All
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </Layout>
   );
 };

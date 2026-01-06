@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from './Layout';
 import Notification from './Notification';
@@ -36,6 +36,9 @@ function SupplierDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTransactions, setSelectedTransactions] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   useEffect(() => {
     fetchSupplierData();
@@ -52,6 +55,50 @@ function SupplierDetail() {
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedTransactions([]);
+  };
+
+  const toggleTransactionSelection = (transactionId) => {
+    setSelectedTransactions(prev => 
+      prev.includes(transactionId)
+        ? prev.filter(id => id !== transactionId)
+        : [...prev, transactionId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const currentTransactions = searchTerm ? filteredTransactions : transactions;
+    if (selectedTransactions.length === currentTransactions.length) {
+      setSelectedTransactions([]);
+    } else {
+      setSelectedTransactions(currentTransactions.map(t => t._id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await Promise.all(
+        selectedTransactions.map(transactionId =>
+          axios.delete(`/api/suppliers/${id}/transactions/${transactionId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        )
+      );
+      
+      setTransactions(prev => prev.filter(t => !selectedTransactions.includes(t._id)));
+      showNotification(`Successfully deleted ${selectedTransactions.length} transaction(s)`);
+      setSelectedTransactions([]);
+      setSelectionMode(false);
+      setShowBulkDeleteConfirm(false);
+    } catch (error) {
+      console.error('Error deleting transactions:', error);
+      showNotification('Failed to delete some transactions', 'error');
+    }
   };
 
   const filteredTransactions = transactions.filter(transaction =>
@@ -142,7 +189,7 @@ function SupplierDetail() {
         });
         showNotification('Transaction added successfully');
       } else {
-        response = await axios.post(`/api/suppliers/${id}/transactions/${selectedTransaction._id}`, {
+        response = await axios.put(`/api/suppliers/${id}/transactions/${selectedTransaction._id}`, {
           type: transactionType,
           amount: amount,
           description: description,
@@ -356,6 +403,42 @@ function SupplierDetail() {
           />
         </div>
 
+        {/* Selection Mode Controls */}
+        {transactions.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button
+              onClick={toggleSelectionMode}
+              className={`px-3 md:px-6 py-2 md:py-2.5 rounded-lg font-medium text-sm md:text-base transition-all ${
+                selectionMode 
+                  ? 'bg-gray-500 hover:bg-gray-600 text-white' 
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              {selectionMode ? 'Cancel' : 'Select'}
+            </button>
+            
+            {selectionMode && (
+              <>
+                <button
+                  onClick={toggleSelectAll}
+                  className="px-3 md:px-6 py-2 md:py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium text-sm md:text-base transition-all"
+                >
+                  {selectedTransactions.length === (searchTerm ? filteredTransactions : transactions).length ? 'Deselect All' : 'Select All'}
+                </button>
+                
+                {selectedTransactions.length > 0 && (
+                  <button
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                    className="px-3 md:px-6 py-2 md:py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm md:text-base transition-all whitespace-nowrap"
+                  >
+                    Delete ({selectedTransactions.length})
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Transactions Table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {transactions.length === 0 ? (
@@ -377,6 +460,9 @@ function SupplierDetail() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-gray-50 border-b-2 border-gray-200">
+                      {selectionMode && (
+                        <th className="px-4 md:px-6 py-4 text-left text-sm font-semibold text-gray-700 w-12"></th>
+                      )}
                       <th className="px-4 md:px-6 py-4 text-left text-sm font-semibold text-gray-700">Date</th>
                       <th className="px-4 md:px-6 py-4 text-left text-sm font-semibold text-gray-700 hidden md:table-cell">Description</th>
                       <th className="px-4 md:px-6 py-4 text-left text-sm font-semibold text-gray-700">Debit</th>
@@ -388,11 +474,29 @@ function SupplierDetail() {
                       <tr 
                         key={transaction._id}
                         onClick={() => {
-                          setSelectedTransaction(transaction);
-                          setShowDetailModal(true);
+                          if (!selectionMode) {
+                            setSelectedTransaction(transaction);
+                            setShowDetailModal(true);
+                          }
                         }}
-                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                        className={`border-b border-gray-100 transition-colors ${
+                          selectionMode 
+                            ? 'hover:bg-blue-50' 
+                            : 'hover:bg-gray-50 cursor-pointer'
+                        } ${
+                          selectedTransactions.includes(transaction._id) ? 'bg-blue-100' : ''
+                        }`}
                       >
+                        {selectionMode && (
+                          <td className="px-4 md:px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedTransactions.includes(transaction._id)}
+                              onChange={() => toggleTransactionSelection(transaction._id)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="px-4 md:px-6 py-4 text-sm text-gray-900">{formatDate(transaction.date || transaction.createdAt)}</td>
                         <td className="px-4 md:px-6 py-4 text-sm text-gray-900 hidden md:table-cell">{transaction.description || 'NONE'}</td>
                         <td className="px-4 md:px-6 py-4 text-sm font-semibold text-red-600">
@@ -603,6 +707,34 @@ function SupplierDetail() {
                 >
                   Delete
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001] p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Confirm Bulk Delete</h2>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to delete {selectedTransactions.length} transaction(s)? This action cannot be undone.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    onClick={() => setShowBulkDeleteConfirm(false)}
+                    className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleBulkDelete}
+                    className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Delete All
+                  </button>
+                </div>
               </div>
             </div>
           </div>

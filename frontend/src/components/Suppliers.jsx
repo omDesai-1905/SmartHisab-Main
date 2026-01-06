@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from './Layout';
 import Notification from './Notification';
@@ -94,7 +94,7 @@ function Suppliers() {
         showNotification('Supplier added successfully');
         
       } else {
-        response = await axios.post(`/api/suppliers/${selectedSupplier._id}`, {
+        response = await axios.put(`/api/suppliers/${selectedSupplier._id}`, {
           name: newSupplier.name.trim(),
           phone: newSupplier.phone.trim()
         });

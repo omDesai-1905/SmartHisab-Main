@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 axios.defaults.baseURL = import.meta.env.VITE_BASE_URL;
@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
           }
         } catch (error) {
           // Token verification failed, clear storage
-          console.log('Token verification failed:', error.message);
+          console.error('Token verification failed:', error.message);
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           delete axios.defaults.headers.common['Authorization'];

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from './AdminLayout';
 
@@ -8,6 +8,8 @@ function AdminMessages() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
 
   useEffect(() => {
     fetchMessages();
@@ -90,6 +92,34 @@ function AdminMessages() {
     setSelectedMessage(message);
     if (!message.isRead) {
       markAsRead(message._id);
+    }
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/api/admin/messages/${messageToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setMessages(prev => prev.filter(msg => msg._id !== messageToDelete));
+        setShowDeleteConfirm(false);
+        setMessageToDelete(null);
+        if (selectedMessage?._id === messageToDelete) {
+          setSelectedMessage(null);
+        }
+      } else {
+        alert('Failed to delete message');
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      alert('Failed to delete message');
     }
   };
 
@@ -190,6 +220,17 @@ function AdminMessages() {
                         >
                           Unread
                         </button>
+                        <button
+                          className="status-btn delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMessageToDelete(message._id);
+                            setShowDeleteConfirm(true);
+                          }}
+                          title="Delete message"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -254,6 +295,37 @@ function AdminMessages() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="delete-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-modal-header">
+              <h3>Delete Message?</h3>
+            </div>
+            <div className="delete-modal-body">
+              <p>Are you sure you want to delete this message? This action cannot be undone.</p>
+            </div>
+            <div className="delete-modal-footer">
+              <button 
+                className="cancel-btn"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setMessageToDelete(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="confirm-delete-btn"
+                onClick={handleDeleteMessage}
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
@@ -498,6 +570,17 @@ function AdminMessages() {
           color: white;
           border-color: #e53e3e;
         }
+
+        .delete-btn {
+          color: #ef4444;
+          border-color: #ef4444;
+        }
+
+        .delete-btn:hover {
+          background: #ef4444;
+          color: white;
+          border-color: #ef4444;
+        }
         }
 
         .message-content h5 {
@@ -665,6 +748,79 @@ function AdminMessages() {
           .page-header h1 {
             font-size: 24px;
           }
+        }
+
+        /* Delete Modal Styles */
+        .delete-modal-content {
+          background: white;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 450px;
+          overflow: hidden;
+        }
+
+        .delete-modal-header {
+          padding: 20px 25px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .delete-modal-header h3 {
+          color: #2d3748;
+          font-size: 20px;
+          font-weight: 600;
+          margin: 0;
+        }
+
+        .delete-modal-body {
+          padding: 25px;
+        }
+
+        .delete-modal-body p {
+          color: #4a5568;
+          font-size: 16px;
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .delete-modal-footer {
+          padding: 20px 25px;
+          border-top: 1px solid #e2e8f0;
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+        }
+
+        .cancel-btn {
+          padding: 8px 20px;
+          border: 2px solid #e2e8f0;
+          border-radius: 6px;
+          background: white;
+          color: #4a5568;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+
+        .cancel-btn:hover {
+          background: #f7fafc;
+          border-color: #cbd5e0;
+        }
+
+        .confirm-delete-btn {
+          padding: 8px 20px;
+          border: none;
+          border-radius: 6px;
+          background: #ef4444;
+          color: white;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+
+        .confirm-delete-btn:hover {
+          background: #dc2626;
         }
       `}</style>
     </AdminLayout>
