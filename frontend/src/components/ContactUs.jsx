@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Layout from './Layout';
+import API_BASE_URL from '../config/api';
 
 function ContactUs() {
   const { user, logout } = useAuth();
@@ -90,7 +91,7 @@ function ContactUs() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/messages', {
+      const response = await fetch(`${API_BASE_URL}/api/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

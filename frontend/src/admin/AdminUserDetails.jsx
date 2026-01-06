@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from './AdminLayout';
+import API_BASE_URL from '../config/api';
 
 function AdminUserDetails() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ function AdminUserDetails() {
   const fetchUserDetails = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

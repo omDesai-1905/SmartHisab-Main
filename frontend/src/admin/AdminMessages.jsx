@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from './AdminLayout';
+import API_BASE_URL from '../config/api';
 
 function AdminMessages() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ function AdminMessages() {
   const fetchMessages = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('/api/admin/messages', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -42,7 +43,7 @@ function AdminMessages() {
     }
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/admin/messages/${messageId}/read`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/messages/${messageId}/read`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -68,7 +69,7 @@ function AdminMessages() {
     }
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/admin/messages/${messageId}/unread`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/messages/${messageId}/unread`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -100,7 +101,7 @@ function AdminMessages() {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/admin/messages/${messageToDelete}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/messages/${messageToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

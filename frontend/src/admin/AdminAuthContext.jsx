@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import API_BASE_URL from '../config/api';
 
 const AdminAuthContext = createContext();
 
@@ -26,7 +27,7 @@ export const AdminAuthProvider = ({ children }) => {
         return;
       }
 
-      const response = await fetch('/api/admin/verify', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -52,7 +53,7 @@ export const AdminAuthProvider = ({ children }) => {
 
   const adminLogin = async (email, password) => {
     try {
-      const response = await fetch('/api/admin/login', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
