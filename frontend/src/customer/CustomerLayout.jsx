@@ -157,6 +157,11 @@ const CustomerLayout = ({ children, currentPage }) => {
           >
             ☰
           </button>
+          <img 
+            src="/SmartHisabLogo1.png" 
+            alt="SmartHisab" 
+            className="h-10 w-auto object-contain"
+          />
           <h1 className="text-xl font-bold text-gray-800">
             {currentPage === 'portal' && 'Dashboard'}
             {currentPage === 'transactions' && 'Transaction History'}

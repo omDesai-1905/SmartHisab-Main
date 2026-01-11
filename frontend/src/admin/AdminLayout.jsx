@@ -35,7 +35,12 @@ function AdminLayout({ children }) {
             >
               ☰
             </button>
-            <h1 className="text-blue-800 font-bold text-[20px] md:text-[18px] sm:text-[16px] m-0" style={{ marginLeft: '20px' }}>SmartHisab Admin</h1>
+            <img 
+              src="/SmartHisabLogo1.png" 
+              alt="SmartHisab" 
+              className="h-12 w-auto object-contain"
+            />
+            <h1 className="text-blue-800 font-bold text-[20px] md:text-[18px] sm:text-[16px] m-0">Admin</h1>
         </div>
         <div className="flex items-center gap-4">
             <span className="text-gray-600 text-sm hidden lg:block">smarthisab@admin.com</span>

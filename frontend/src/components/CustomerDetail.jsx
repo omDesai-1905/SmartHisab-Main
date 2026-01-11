@@ -486,7 +486,7 @@ function CustomerDetail() {
                   </div>
                   <div className="pt-1.5 border-t border-blue-200">
                     <span className="text-[10px] text-blue-700 block truncate">
-                      <a href="/customer/login" className="underline hover:text-blue-900">Portal Login</a>
+                      <a href="/customerpanel/login" className="underline hover:text-blue-900">Portal Login</a>
                     </span>
                   </div>
                 </div>
