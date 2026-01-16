@@ -42,6 +42,7 @@ function CustomerDetail() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState([]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [deletionProgress, setDeletionProgress] = useState(null);
   const [passwordData, setPasswordData] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
@@ -91,22 +92,61 @@ function CustomerDetail() {
   const handleBulkDelete = async () => {
     try {
       const token = localStorage.getItem('token');
-      await Promise.all(
-        selectedTransactions.map(transactionId =>
-          axios.delete(`/api/customers/${id}/transactions/${transactionId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        )
-      );
+      const totalCount = selectedTransactions.length;
       
-      setTransactions(prev => prev.filter(t => !selectedTransactions.includes(t._id)));
-      showNotification(`Successfully deleted ${selectedTransactions.length} transaction(s)`);
+      // Process deletions in batches of 5 to avoid overwhelming the backend
+      const batchSize = 5;
+      const results = [];
+      let completedCount = 0;
+      
+      // Show initial progress
+      setDeletionProgress({ completed: 0, total: totalCount });
+      
+      for (let i = 0; i < selectedTransactions.length; i += batchSize) {
+        const batch = selectedTransactions.slice(i, i + batchSize);
+        const batchResults = await Promise.allSettled(
+          batch.map(transactionId =>
+            axios.delete(`/api/customers/${id}/transactions/${transactionId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+          )
+        );
+        results.push(...batchResults);
+        
+        // Update progress after each batch
+        completedCount += batch.length;
+        setDeletionProgress({ completed: completedCount, total: totalCount });
+      }
+      
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const failCount = results.filter(r => r.status === 'rejected').length;
+      
+      // Wait a moment for backend to complete all operations
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh data from server to ensure UI is in sync
+      await fetchCustomerData();
+      
+      // Clear progress
+      setDeletionProgress(null);
+      
+      if (failCount === 0) {
+        showNotification(`Successfully deleted ${successCount} transaction(s)`);
+      } else if (successCount === 0) {
+        showNotification('Failed to delete transactions', 'error');
+      } else {
+        showNotification(`Deleted ${successCount} transaction(s), ${failCount} failed`, 'warning');
+      }
+      
       setSelectedTransactions([]);
       setSelectionMode(false);
       setShowBulkDeleteConfirm(false);
     } catch (error) {
       console.error('Error deleting transactions:', error);
-      showNotification('Failed to delete some transactions', 'error');
+      setDeletionProgress(null);
+      showNotification('Failed to delete transactions', 'error');
+      // Still refresh to ensure UI is in sync
+      await fetchCustomerData();
     }
   };
 
@@ -1277,7 +1317,17 @@ function CustomerDetail() {
           notification={notification} 
           onClose={() => setNotification(null)} 
         />
-    </div>
+        
+        {/* Deletion Progress Indicator */}
+        {deletionProgress && (
+          <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-lg z-[1002] flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+            <span className="font-medium">
+              Deleting {deletionProgress.completed} of {deletionProgress.total} transactions...
+            </span>
+          </div>
+        )}
+      </div>
     </Layout>
   );
 }

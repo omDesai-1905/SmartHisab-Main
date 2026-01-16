@@ -37,6 +37,7 @@ function Cashbook() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState([]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [deletionProgress, setDeletionProgress] = useState(null);
 
   useEffect(() => {
     fetchEntries();
@@ -85,22 +86,61 @@ function Cashbook() {
   const handleBulkDelete = async () => {
     try {
       const token = localStorage.getItem('token');
-      await Promise.all(
-        selectedEntries.map(entryId =>
-          axios.delete(`/api/cashbook/${entryId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        )
-      );
+      const totalCount = selectedEntries.length;
       
-      setEntries(prev => prev.filter(e => !selectedEntries.includes(e._id || e.id)));
-      showNotification(`Successfully deleted ${selectedEntries.length} entry(ies)`);
+      // Process deletions in batches of 5 to avoid overwhelming the backend
+      const batchSize = 5;
+      const results = [];
+      let completedCount = 0;
+      
+      // Show initial progress
+      setDeletionProgress({ completed: 0, total: totalCount });
+      
+      for (let i = 0; i < selectedEntries.length; i += batchSize) {
+        const batch = selectedEntries.slice(i, i + batchSize);
+        const batchResults = await Promise.allSettled(
+          batch.map(entryId =>
+            axios.delete(`/api/cashbook/${entryId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+          )
+        );
+        results.push(...batchResults);
+        
+        // Update progress after each batch
+        completedCount += batch.length;
+        setDeletionProgress({ completed: completedCount, total: totalCount });
+      }
+      
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const failCount = results.filter(r => r.status === 'rejected').length;
+      
+      // Wait a moment for backend to complete all operations
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh data from server to ensure UI is in sync
+      await fetchEntries();
+      
+      // Clear progress
+      setDeletionProgress(null);
+      
+      if (failCount === 0) {
+        showNotification(`Successfully deleted ${successCount} entry(ies)`);
+      } else if (successCount === 0) {
+        showNotification('Failed to delete entries', 'error');
+      } else {
+        showNotification(`Deleted ${successCount} entry(ies), ${failCount} failed`, 'warning');
+      }
+      
       setSelectedEntries([]);
       setSelectionMode(false);
       setShowBulkDeleteConfirm(false);
     } catch (error) {
       console.error('Error deleting entries:', error);
-      showNotification('Failed to delete some entries', 'error');
+      setDeletionProgress(null);
+      showNotification('Failed to delete entries', 'error');
+      // Still refresh to ensure UI is in sync
+      await fetchEntries();
     }
   };
 
@@ -702,6 +742,16 @@ function Cashbook() {
           notification={notification}
           onClose={() => setNotification(null)}
         />
+        
+        {/* Deletion Progress Indicator */}
+        {deletionProgress && (
+          <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-6 py-4 rounded-lg shadow-lg z-[1002] flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+            <span className="font-medium">
+              Deleting {deletionProgress.completed} of {deletionProgress.total} entries...
+            </span>
+          </div>
+        )}
       </div>
     </Layout>
   );
