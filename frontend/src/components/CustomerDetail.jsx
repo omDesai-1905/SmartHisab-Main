@@ -860,7 +860,7 @@ function CustomerDetail() {
             disabled={!customer || !transactions || transactions.length === 0}
             title={!customer || !transactions || transactions.length === 0 ? "No transactions available" : "Generate PDF Report"}
           >
-            📄 Generate Report
+            Report
           </button>
         </div>
 

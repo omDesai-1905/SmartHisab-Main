@@ -406,15 +406,9 @@ function Dashboard() {
           <div className="flex gap-4 items-center">
             <button 
               onClick={handleGenerateReport}
-              className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium border-none flex items-center gap-2 transition-transform hover:-translate-y-0.5 shadow-md"
-            >
-              📄 Generate Report
-            </button>
-            <button 
-              onClick={() => navigate('/analytics')}
               className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-dark rounded-lg font-medium border-none flex items-center gap-2 transition-transform hover:-translate-y-0.5 shadow-md"
             >
-               View Analytics
+              Report
             </button>
             <button 
               onClick={openAddModal}
