@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Layout from './Layout';
 import Notification from './Notification';
 import axios from 'axios';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 function CustomerDetail() {
   const { id } = useParams();
@@ -50,6 +52,13 @@ function CustomerDetail() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [verifyingPassword, setVerifyingPassword] = useState(false);
+  
+  // Report generation states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportDateFrom, setReportDateFrom] = useState('');
+  const [reportDateTo, setReportDateTo] = useState('');
+  const [reportErrors, setReportErrors] = useState({});
+  const [includeDescription, setIncludeDescription] = useState(true);
   useEffect(() => {
     fetchCustomerData();
   }, [id]);
@@ -222,6 +231,268 @@ function CustomerDetail() {
     } finally {
       setVerifyingPassword(false);
     }
+  };
+
+  const handleGenerateReport = () => {
+    setShowReportModal(true);
+    // Set default dates - last 30 days to today
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    setReportDateTo(today.toISOString().split('T')[0]);
+    setReportDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+    setReportErrors({});
+  };
+
+  const validateReportDates = () => {
+    const errors = {};
+    
+    if (!reportDateFrom) {
+      errors.dateFrom = 'From date is required';
+    }
+    
+    if (!reportDateTo) {
+      errors.dateTo = 'To date is required';
+    }
+    
+    if (reportDateFrom && reportDateTo) {
+      const fromDate = new Date(reportDateFrom);
+      const toDate = new Date(reportDateTo);
+      
+      if (fromDate > toDate) {
+        errors.dateFrom = 'From date must be before To date';
+      }
+    }
+    
+    setReportErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const generatePDF = () => {
+    if (!validateReportDates()) {
+      return;
+    }
+
+    if (!customer) {
+      showNotification('Customer data not loaded', 'error');
+      return;
+    }
+
+    if (!transactions || transactions.length === 0) {
+      showNotification('No transactions available', 'error');
+      return;
+    }
+
+    // Filter transactions by date range
+    const filteredTransactions = transactions.filter(transaction => {
+      const transactionDate = new Date(transaction.date || transaction.createdAt);
+      const fromDate = new Date(reportDateFrom);
+      const toDate = new Date(reportDateTo);
+      toDate.setHours(23, 59, 59, 999); // Include entire end date
+      
+      return transactionDate >= fromDate && transactionDate <= toDate;
+    }).sort((a, b) => {
+      const dateA = new Date(a.date || a.createdAt);
+      const dateB = new Date(b.date || b.createdAt);
+      return dateA - dateB; // Oldest first for report
+    });
+
+    if (filteredTransactions.length === 0) {
+      showNotification('No transactions found in the selected date range', 'error');
+      return;
+    }
+
+    // Create PDF
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Customer Name: ${customer.name}`, 14, 20);
+    
+    // Add date range subtitle
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
+    const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
+    doc.text(`Report Period: ${fromDateFormatted} to ${toDateFormatted}`, 14, 28);
+    
+    // Calculate totals
+    let totalDebit = 0;
+    let totalCredit = 0;
+    
+    filteredTransactions.forEach(transaction => {
+      if (transaction.type === 'debit') {
+        totalDebit += transaction.amount;
+      } else {
+        totalCredit += transaction.amount;
+      }
+    });
+
+    if (includeDescription) {
+      // WITH DESCRIPTION FORMAT - Single table with Date, Description, Debit, Credit
+      doc.setFontSize(10);
+      doc.text('(Debit - Credit = You will get)', 14, 35);
+      
+      // Prepare table data
+      const tableData = filteredTransactions.map(transaction => {
+        const date = new Date(transaction.date || transaction.createdAt).toLocaleDateString('en-GB');
+        const description = transaction.description || 'NONE';
+        const debit = transaction.type === 'debit' ? transaction.amount.toFixed(2) : '-';
+        const credit = transaction.type === 'credit' ? transaction.amount.toFixed(2) : '-';
+        
+        return [date, description, debit, credit];
+      });
+      
+      // Add totals row
+      tableData.push(['', 'Total', totalDebit.toFixed(2), totalCredit.toFixed(2)]);
+      
+      // Generate table
+      autoTable(doc, {
+        startY: 40,
+        head: [['Date', 'Description', 'Debit', 'Credit']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [66, 66, 66],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        bodyStyles: {
+          textColor: [0, 0, 0]
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 30 },
+          1: { halign: 'left', cellWidth: 80 },
+          2: { halign: 'right', cellWidth: 35 },
+          3: { halign: 'right', cellWidth: 35 }
+        },
+        didParseCell: function(data) {
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+          }
+        }
+      });
+    } else {
+      // WITHOUT DESCRIPTION FORMAT - Single table with Debit and Credit side by side
+      
+      // Separate debit and credit transactions
+      const debitTransactions = filteredTransactions.filter(t => t.type === 'debit');
+      const creditTransactions = filteredTransactions.filter(t => t.type === 'credit');
+      
+      // Create rows with debit and credit side by side
+      const maxRows = Math.max(debitTransactions.length, creditTransactions.length);
+      const tableData = [];
+      
+      for (let i = 0; i < maxRows; i++) {
+        const debitDate = i < debitTransactions.length 
+          ? new Date(debitTransactions[i].date || debitTransactions[i].createdAt).toLocaleDateString('en-GB')
+          : '';
+        const debitAmount = i < debitTransactions.length 
+          ? debitTransactions[i].amount.toFixed(2)
+          : '';
+        
+        const creditDate = i < creditTransactions.length 
+          ? new Date(creditTransactions[i].date || creditTransactions[i].createdAt).toLocaleDateString('en-GB')
+          : '';
+        const creditAmount = i < creditTransactions.length 
+          ? creditTransactions[i].amount.toFixed(2)
+          : '';
+        
+        tableData.push([debitDate, debitAmount, creditDate, creditAmount]);
+      }
+      
+      // Add totals row
+      tableData.push(['Total', totalDebit.toFixed(2), 'Total', totalCredit.toFixed(2)]);
+      
+      autoTable(doc, {
+        startY: 40,
+        head: [['Debit', '', 'Credit', ''], ['Date', 'Amount', 'Date', 'Amount']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [200, 200, 200],
+          textColor: [0, 0, 0],
+          fontStyle: 'bold',
+          halign: 'center',
+          fontSize: 10,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.5
+        },
+        bodyStyles: {
+          textColor: [0, 0, 0],
+          fontSize: 9
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 35 },
+          1: { halign: 'right', cellWidth: 45 },
+          2: { halign: 'center', cellWidth: 35 },
+          3: { halign: 'right', cellWidth: 45 }
+        },
+        margin: { left: 14, right: 14 },
+        didParseCell: function(data) {
+          // Make total row bold
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+          }
+          // Merge header cells for Debit and Credit labels
+          if (data.section === 'head' && data.row.index === 0) {
+            if (data.column.index === 0) {
+              data.cell.styles.halign = 'center';
+              data.cell.colSpan = 2;
+            } else if (data.column.index === 1) {
+              data.cell.text = '';
+            } else if (data.column.index === 2) {
+              data.cell.styles.halign = 'center';
+              data.cell.colSpan = 2;
+            } else if (data.column.index === 3) {
+              data.cell.text = '';
+            }
+          }
+        }
+      });
+      
+      // Add final balance calculation at bottom
+      const finalY = doc.lastAutoTable.finalY + 15;
+      
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'normal');
+      const balance = totalDebit - totalCredit;
+      
+      // Multi-line balance display
+      let yPosition = finalY;
+      doc.text(totalDebit.toFixed(2), 14, yPosition);
+      yPosition += 7;
+      doc.text(`- ${totalCredit.toFixed(2)}`, 14, yPosition);
+      yPosition += 7;
+      doc.text('_________________', 14, yPosition);
+      yPosition += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text(Math.abs(balance).toFixed(2), 14, yPosition);
+      
+      // Add status text
+      if (balance > 0) {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('(You will give)', 14, yPosition + 7);
+      } else if (balance < 0) {
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('(You will get)', 14, yPosition + 7);
+      }
+    }
+    
+    // Save PDF
+    const reportType = includeDescription ? 'With_Description' : 'Without_Description';
+    const fileName = `${customer.name}_Report_${reportType}_${fromDateFormatted.replace(/\//g, '-')}_to_${toDateFormatted.replace(/\//g, '-')}.pdf`;
+    doc.save(fileName);
+    
+    showNotification('Report generated successfully!', 'success');
+    setShowReportModal(false);
   };
 
   const fetchCustomerData = async () => {
@@ -417,6 +688,21 @@ function CustomerDetail() {
     return balance;
   };
 
+  const calculateTotals = () => {
+    let totalDebit = 0;
+    let totalCredit = 0;
+    
+    transactions.forEach(transaction => {
+      if (transaction.type === 'debit') {
+        totalDebit += transaction.amount;
+      } else {
+        totalCredit += transaction.amount;
+      }
+    });
+    
+    return { totalDebit, totalCredit };
+  };
+
   const formatAmount = (amount) => {
     return `₹${amount.toLocaleString()}`;
   };
@@ -451,6 +737,7 @@ function CustomerDetail() {
   }
 
   const balance = calculateBalance();
+  const { totalDebit, totalCredit } = calculateTotals();
 
   return (
     <Layout currentPage="/customer">
@@ -470,16 +757,29 @@ function CustomerDetail() {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{customer.name}</h1>
               <p className="text-lg text-gray-600 mb-4">📞 {customer.phone}</p>
               
-              <div className="pt-4 border-t border-gray-200">
-                <span className="text-lg text-gray-600">Current Balance: </span>
-                <span className={`text-2xl font-bold ${
-                  balance > 0 ? 'text-red-600' : balance < 0 ? 'text-green-600' : 'text-gray-600'
-                }`}>
-                  {formatAmount(Math.abs(balance))}
-                  {balance > 0 && ' (You will give)'}
-                  {balance < 0 && ' (You will get)'}
-                  {balance === 0 && ' (No balance)'}
-                </span>
+              <div className="pt-4 border-t border-gray-200 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base text-gray-600 font-medium">Total Debit:</span>
+                  <span className="text-xl font-bold text-red-600">
+                    {formatAmount(totalDebit)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-base text-gray-600 font-medium">Total Credit:</span>
+                  <span className="text-xl font-bold text-green-600">
+                    {formatAmount(totalCredit)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                  <span className="text-base text-gray-600 font-medium">Balance (Debit - Credit):</span>
+                  <span className={`text-2xl font-bold ${
+                    totalDebit > totalCredit ? 'text-red-600' : totalDebit < totalCredit ? 'text-green-600' : 'text-gray-600'
+                  }`}>
+                    {formatAmount(Math.abs(totalDebit - totalCredit))}
+                  </span>
+                </div>
               </div>
             </div>
             
@@ -541,7 +841,7 @@ function CustomerDetail() {
         </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <button 
             onClick={() => openTransactionModal('debit')}
             className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors shadow-sm"
@@ -553,6 +853,14 @@ function CustomerDetail() {
             className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition-colors shadow-sm"
           >
              Add Credit (You Got)
+          </button>
+          <button 
+            onClick={handleGenerateReport}
+            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!customer || !transactions || transactions.length === 0}
+            title={!customer || !transactions || transactions.length === 0 ? "No transactions available" : "Generate PDF Report"}
+          >
+            📄 Generate Report
           </button>
         </div>
 
@@ -1197,6 +1505,119 @@ function CustomerDetail() {
                     className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
                   >
                     Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Report Generation Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001] p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-800">Generate Report</h2>
+                <button 
+                  className="text-4xl text-gray-400 hover:text-gray-600 leading-none transition-colors"
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setReportErrors({});
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                  <p className="text-sm text-blue-800">
+                    Select a date range to generate a PDF report of all transactions{customer ? ` for ${customer.name}` : ''}.
+                  </p>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    value={reportDateFrom}
+                    onChange={(e) => {
+                      setReportDateFrom(e.target.value);
+                      setReportErrors(prev => ({ ...prev, dateFrom: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border-2 ${
+                      reportErrors.dateFrom ? 'border-red-500' : 'border-gray-200'
+                    } rounded-lg text-base transition-all focus:outline-none focus:border-blue-500`}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                  {reportErrors.dateFrom && (
+                    <div className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {reportErrors.dateFrom}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    To Date
+                  </label>
+                  <input
+                    type="date"
+                    value={reportDateTo}
+                    onChange={(e) => {
+                      setReportDateTo(e.target.value);
+                      setReportErrors(prev => ({ ...prev, dateTo: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border-2 ${
+                      reportErrors.dateTo ? 'border-red-500' : 'border-gray-200'
+                    } rounded-lg text-base transition-all focus:outline-none focus:border-blue-500`}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                  {reportErrors.dateTo && (
+                    <div className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {reportErrors.dateTo}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeDescription}
+                      onChange={(e) => setIncludeDescription(e.target.checked)}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                    />
+                    <span className="ml-3 text-sm font-semibold text-gray-700">
+                      Include Description in Report
+                    </span>
+                  </label>
+                  <p className="mt-2 ml-8 text-xs text-gray-600">
+                    {includeDescription 
+                      ? 'PDF will show: Date, Description, Debit, Credit columns' 
+                      : 'PDF will show: Side-by-side Debit and Credit columns (Date, Amount only)'}
+                  </p>
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    onClick={() => {
+                      setShowReportModal(false);
+                      setReportErrors({});
+                    }}
+                    className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={generatePDF}
+                    className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+                  >
+                    Generate PDF
                   </button>
                 </div>
               </div>

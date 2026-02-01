@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Layout from './Layout';
 import Notification from './Notification';
 import axios from 'axios';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 function Dashboard() {
   const [customers, setCustomers] = useState([]);
@@ -17,6 +19,11 @@ function Dashboard() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportDateFrom, setReportDateFrom] = useState('');
+  const [reportDateTo, setReportDateTo] = useState('');
+  const [reportErrors, setReportErrors] = useState({});
+  const [generatingReport, setGeneratingReport] = useState(false);
   
   const navigate = useNavigate();
 
@@ -160,6 +167,210 @@ function Dashboard() {
     navigate(`/customer/${customerId}`);
   };
 
+  const handleGenerateReport = () => {
+    setShowReportModal(true);
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    setReportDateTo(today.toISOString().split('T')[0]);
+    setReportDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+    setReportErrors({});
+  };
+
+  const validateReportDates = () => {
+    const errors = {};
+    
+    if (!reportDateFrom) {
+      errors.dateFrom = 'From date is required';
+    }
+    
+    if (!reportDateTo) {
+      errors.dateTo = 'To date is required';
+    }
+    
+    if (reportDateFrom && reportDateTo) {
+      const fromDate = new Date(reportDateFrom);
+      const toDate = new Date(reportDateTo);
+      
+      if (fromDate > toDate) {
+        errors.dateFrom = 'From date must be before To date';
+      }
+    }
+    
+    setReportErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const generateAllCustomersReport = async () => {
+    if (!validateReportDates()) {
+      return;
+    }
+
+    setGeneratingReport(true);
+
+    try {
+      // Fetch all customers with their transactions
+      const response = await axios.get('/api/customers');
+      const allCustomers = response.data;
+
+      if (!allCustomers || allCustomers.length === 0) {
+        showNotification('No customers found', 'error');
+        setGeneratingReport(false);
+        return;
+      }
+
+      // Fetch transactions for each customer
+      const customersWithTransactions = await Promise.all(
+        allCustomers.map(async (customer) => {
+          try {
+            const txResponse = await axios.get(`/api/customers/${customer._id}/transactions`);
+            return {
+              ...customer,
+              transactions: txResponse.data.transactions || []
+            };
+          } catch (error) {
+            console.error(`Error fetching transactions for ${customer.name}:`, error);
+            return { ...customer, transactions: [] };
+          }
+        })
+      );
+
+      // Filter transactions by date range
+      const fromDate = new Date(reportDateFrom);
+      const toDate = new Date(reportDateTo);
+      toDate.setHours(23, 59, 59, 999);
+
+      // Create PDF
+      const doc = new jsPDF();
+      let startY = 20;
+      
+      // Add main title
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text('All Customers Transaction Report', 14, startY);
+      
+      // Add date range
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'normal');
+      const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
+      const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
+      doc.text(`Report Period: ${fromDateFormatted} to ${toDateFormatted}`, 14, startY + 7);
+      
+      startY += 15;
+
+      let hasTransactions = false;
+
+      // Loop through each customer
+      customersWithTransactions.forEach((customer, index) => {
+        const filteredTransactions = customer.transactions.filter(transaction => {
+          const transactionDate = new Date(transaction.date || transaction.createdAt);
+          return transactionDate >= fromDate && transactionDate <= toDate;
+        }).sort((a, b) => {
+          const dateA = new Date(a.date || a.createdAt);
+          const dateB = new Date(b.date || b.createdAt);
+          return dateA - dateB;
+        });
+
+        if (filteredTransactions.length > 0) {
+          hasTransactions = true;
+
+          // Check if we need a new page
+          if (startY > 250) {
+            doc.addPage();
+            startY = 20;
+          }
+
+          // Add customer name header
+          doc.setFontSize(14);
+          doc.setFont(undefined, 'bold');
+          
+          // Calculate balance for this customer
+          let totalDebit = 0;
+          let totalCredit = 0;
+          filteredTransactions.forEach(tx => {
+            if (tx.type === 'debit') totalDebit += tx.amount;
+            else totalCredit += tx.amount;
+          });
+          const balance = totalDebit - totalCredit;
+          const balanceText = balance > 0 ? `Debit - Credit = ${Math.abs(balance).toFixed(2)} (You will get)` : balance < 0 ? `Debit - Credit = ${Math.abs(balance).toFixed(2)} (You will give)` : 'Debit - Credit = 0 (Settled)';
+          
+          doc.text(`Customer Name: ${customer.name}`, 14, startY);
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.text(`(${balanceText})`, 14, startY + 5);
+
+          startY += 10;
+
+          // Prepare table data
+          const tableData = filteredTransactions.map(transaction => {
+            const date = new Date(transaction.date || transaction.createdAt).toLocaleDateString('en-GB');
+            const description = transaction.description || 'NONE';
+            const debit = transaction.type === 'debit' ? transaction.amount.toFixed(2) : '-';
+            const credit = transaction.type === 'credit' ? transaction.amount.toFixed(2) : '-';
+            return [date, description, debit, credit];
+          });
+
+          // Add totals row
+          tableData.push(['', 'Total', totalDebit.toFixed(2), totalCredit.toFixed(2)]);
+
+          // Generate table for this customer
+          autoTable(doc, {
+            startY: startY,
+            head: [['Date', 'Description', 'Debit', 'Credit']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: {
+              fillColor: [66, 66, 66],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              halign: 'center',
+              fontSize: 9
+            },
+            bodyStyles: {
+              textColor: [0, 0, 0],
+              fontSize: 8
+            },
+            columnStyles: {
+              0: { halign: 'center', cellWidth: 25 },
+              1: { halign: 'left', cellWidth: 85 },
+              2: { halign: 'right', cellWidth: 30 },
+              3: { halign: 'right', cellWidth: 30 }
+            },
+            didParseCell: function(data) {
+              if (data.row.index === tableData.length - 1) {
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.fillColor = [240, 240, 240];
+              }
+            },
+            margin: { left: 14, right: 14 }
+          });
+
+          // Update startY for next customer
+          startY = doc.lastAutoTable.finalY + 15;
+        }
+      });
+
+      if (!hasTransactions) {
+        showNotification('No transactions found in the selected date range', 'error');
+        setGeneratingReport(false);
+        return;
+      }
+
+      // Save PDF
+      const fileName = `All_Customers_Report_${fromDateFormatted.replace(/\//g, '-')}_to_${toDateFormatted.replace(/\//g, '-')}.pdf`;
+      doc.save(fileName);
+      
+      showNotification('Report generated successfully!', 'success');
+      setShowReportModal(false);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      showNotification('Failed to generate report', 'error');
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   const formatBalance = (balance) => {
     const absBalance = Math.abs(balance);
     return `₹${absBalance.toLocaleString()}`;
@@ -193,6 +404,12 @@ function Dashboard() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Customer List</h1>
           <div className="flex gap-4 items-center">
+            <button 
+              onClick={handleGenerateReport}
+              className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium border-none flex items-center gap-2 transition-transform hover:-translate-y-0.5 shadow-md"
+            >
+              📄 Generate Report
+            </button>
             <button 
               onClick={() => navigate('/analytics')}
               className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-dark rounded-lg font-medium border-none flex items-center gap-2 transition-transform hover:-translate-y-0.5 shadow-md"
@@ -406,6 +623,105 @@ function Dashboard() {
                     className="px-6 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
                   >
                     Delete Customer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Report Generation Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001] p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-800">Generate All Customers Report</h2>
+                <button 
+                  className="text-4xl text-gray-400 hover:text-gray-600 leading-none transition-colors"
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setReportErrors({});
+                  }}
+                  disabled={generatingReport}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                  <p className="text-sm text-blue-800">
+                    Select a date range to generate a PDF report with all customers' transactions grouped by customer name.
+                  </p>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    value={reportDateFrom}
+                    onChange={(e) => {
+                      setReportDateFrom(e.target.value);
+                      setReportErrors(prev => ({ ...prev, dateFrom: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border-2 ${
+                      reportErrors.dateFrom ? 'border-red-500' : 'border-gray-200'
+                    } rounded-lg text-base transition-all focus:outline-none focus:border-blue-500`}
+                    max={new Date().toISOString().split('T')[0]}
+                    disabled={generatingReport}
+                  />
+                  {reportErrors.dateFrom && (
+                    <div className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {reportErrors.dateFrom}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    To Date
+                  </label>
+                  <input
+                    type="date"
+                    value={reportDateTo}
+                    onChange={(e) => {
+                      setReportDateTo(e.target.value);
+                      setReportErrors(prev => ({ ...prev, dateTo: '' }));
+                    }}
+                    className={`w-full px-4 py-3 border-2 ${
+                      reportErrors.dateTo ? 'border-red-500' : 'border-gray-200'
+                    } rounded-lg text-base transition-all focus:outline-none focus:border-blue-500`}
+                    max={new Date().toISOString().split('T')[0]}
+                    disabled={generatingReport}
+                  />
+                  {reportErrors.dateTo && (
+                    <div className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                      <span>⚠️</span>
+                      {reportErrors.dateTo}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    onClick={() => {
+                      setShowReportModal(false);
+                      setReportErrors({});
+                    }}
+                    className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50"
+                    disabled={generatingReport}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={generateAllCustomersReport}
+                    className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={generatingReport}
+                  >
+                    {generatingReport ? 'Generating...' : 'Generate PDF'}
                   </button>
                 </div>
               </div>
