@@ -181,14 +181,22 @@ function Dashboard() {
   const validateReportDates = () => {
     const errors = {};
     
-    if (!reportDateFrom) {
-      errors.dateFrom = 'From date is required';
+    // If both dates are empty, it's valid (will generate full report)
+    if (!reportDateFrom && !reportDateTo) {
+      setReportErrors(errors);
+      return true;
     }
     
-    if (!reportDateTo) {
-      errors.dateTo = 'To date is required';
+    // If one date is filled but not the other, show error
+    if (reportDateFrom && !reportDateTo) {
+      errors.dateTo = 'To date is required when From date is specified';
     }
     
+    if (!reportDateFrom && reportDateTo) {
+      errors.dateFrom = 'From date is required when To date is specified';
+    }
+    
+    // If both dates are filled, check if from date is before to date
     if (reportDateFrom && reportDateTo) {
       const fromDate = new Date(reportDateFrom);
       const toDate = new Date(reportDateTo);
@@ -237,9 +245,12 @@ function Dashboard() {
       );
 
       // Filter transactions by date range
-      const fromDate = new Date(reportDateFrom);
-      const toDate = new Date(reportDateTo);
-      toDate.setHours(23, 59, 59, 999);
+      const isFullReport = !reportDateFrom && !reportDateTo;
+      const fromDate = isFullReport ? null : new Date(reportDateFrom);
+      const toDate = isFullReport ? null : new Date(reportDateTo);
+      if (toDate) {
+        toDate.setHours(23, 59, 59, 999);
+      }
 
       // Create PDF
       const doc = new jsPDF();
@@ -253,9 +264,13 @@ function Dashboard() {
       // Add date range
       doc.setFontSize(12);
       doc.setFont(undefined, 'normal');
-      const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
-      const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
-      doc.text(`Report Period: ${fromDateFormatted} to ${toDateFormatted}`, 14, startY + 7);
+      if (isFullReport) {
+        doc.text('Report Period: All Transactions', 14, startY + 7);
+      } else {
+        const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
+        const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
+        doc.text(`Report Period: ${fromDateFormatted} to ${toDateFormatted}`, 14, startY + 7);
+      }
       
       startY += 15;
 
@@ -263,10 +278,16 @@ function Dashboard() {
 
       // Loop through each customer
       customersWithTransactions.forEach((customer, index) => {
-        const filteredTransactions = customer.transactions.filter(transaction => {
-          const transactionDate = new Date(transaction.date || transaction.createdAt);
-          return transactionDate >= fromDate && transactionDate <= toDate;
-        }).sort((a, b) => {
+        const filteredTransactions = isFullReport 
+          ? customer.transactions.sort((a, b) => {
+              const dateA = new Date(a.date || a.createdAt);
+              const dateB = new Date(b.date || b.createdAt);
+              return dateA - dateB;
+            })
+          : customer.transactions.filter(transaction => {
+              const transactionDate = new Date(transaction.date || transaction.createdAt);
+              return transactionDate >= fromDate && transactionDate <= toDate;
+            }).sort((a, b) => {
           const dateA = new Date(a.date || a.createdAt);
           const dateB = new Date(b.date || b.createdAt);
           return dateA - dateB;
@@ -358,7 +379,14 @@ function Dashboard() {
       }
 
       // Save PDF
-      const fileName = `All_Customers_Report_${fromDateFormatted.replace(/\//g, '-')}_to_${toDateFormatted.replace(/\//g, '-')}.pdf`;
+      let fileName;
+      if (isFullReport) {
+        fileName = `All_Customers_Full_Report.pdf`;
+      } else {
+        const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
+        const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
+        fileName = `All_Customers_Report_${fromDateFormatted.replace(/\//g, '-')}_to_${toDateFormatted.replace(/\//g, '-')}.pdf`;
+      }
       doc.save(fileName);
       
       showNotification('Report generated successfully!', 'success');
@@ -645,13 +673,13 @@ function Dashboard() {
               <div className="p-6">
                 <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
                   <p className="text-sm text-blue-800">
-                    Select a date range to generate a PDF report with all customers' transactions grouped by customer name.
+                    Select a date range to generate a PDF report with all customers' transactions grouped by customer name. Leave dates empty to generate a full report with all transactions.
                   </p>
                 </div>
 
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    From Date
+                    From Date (Optional - leave empty for full report)
                   </label>
                   <input
                     type="date"
@@ -674,9 +702,9 @@ function Dashboard() {
                   )}
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    To Date
+                    To Date (Optional - leave empty for full report)
                   </label>
                   <input
                     type="date"
@@ -698,6 +726,23 @@ function Dashboard() {
                     </div>
                   )}
                 </div>
+
+                {(reportDateFrom || reportDateTo) && (
+                  <div className="mb-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReportDateFrom('');
+                        setReportDateTo('');
+                        setReportErrors({});
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      disabled={generatingReport}
+                    >
+                      Clear dates (generate full report)
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex gap-3 justify-end">
                   <button 

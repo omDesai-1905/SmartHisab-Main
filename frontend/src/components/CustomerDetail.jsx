@@ -248,14 +248,22 @@ function CustomerDetail() {
   const validateReportDates = () => {
     const errors = {};
     
-    if (!reportDateFrom) {
-      errors.dateFrom = 'From date is required';
+    // If both dates are empty, it's valid (will generate full report)
+    if (!reportDateFrom && !reportDateTo) {
+      setReportErrors(errors);
+      return true;
     }
     
-    if (!reportDateTo) {
-      errors.dateTo = 'To date is required';
+    // If one date is filled but not the other, show error
+    if (reportDateFrom && !reportDateTo) {
+      errors.dateTo = 'To date is required when From date is specified';
     }
     
+    if (!reportDateFrom && reportDateTo) {
+      errors.dateFrom = 'From date is required when To date is specified';
+    }
+    
+    // If both dates are filled, check if from date is before to date
     if (reportDateFrom && reportDateTo) {
       const fromDate = new Date(reportDateFrom);
       const toDate = new Date(reportDateTo);
@@ -284,19 +292,28 @@ function CustomerDetail() {
       return;
     }
 
+    // Check if this is a full report (no date filtering)
+    const isFullReport = !reportDateFrom && !reportDateTo;
+    
     // Filter transactions by date range
-    const filteredTransactions = transactions.filter(transaction => {
-      const transactionDate = new Date(transaction.date || transaction.createdAt);
-      const fromDate = new Date(reportDateFrom);
-      const toDate = new Date(reportDateTo);
-      toDate.setHours(23, 59, 59, 999); // Include entire end date
-      
-      return transactionDate >= fromDate && transactionDate <= toDate;
-    }).sort((a, b) => {
-      const dateA = new Date(a.date || a.createdAt);
-      const dateB = new Date(b.date || b.createdAt);
-      return dateA - dateB; // Oldest first for report
-    });
+    const filteredTransactions = isFullReport
+      ? transactions.sort((a, b) => {
+          const dateA = new Date(a.date || a.createdAt);
+          const dateB = new Date(b.date || b.createdAt);
+          return dateA - dateB; // Oldest first for report
+        })
+      : transactions.filter(transaction => {
+          const transactionDate = new Date(transaction.date || transaction.createdAt);
+          const fromDate = new Date(reportDateFrom);
+          const toDate = new Date(reportDateTo);
+          toDate.setHours(23, 59, 59, 999); // Include entire end date
+          
+          return transactionDate >= fromDate && transactionDate <= toDate;
+        }).sort((a, b) => {
+          const dateA = new Date(a.date || a.createdAt);
+          const dateB = new Date(b.date || b.createdAt);
+          return dateA - dateB; // Oldest first for report
+        });
 
     if (filteredTransactions.length === 0) {
       showNotification('No transactions found in the selected date range', 'error');
@@ -314,9 +331,13 @@ function CustomerDetail() {
     // Add date range subtitle
     doc.setFontSize(12);
     doc.setFont(undefined, 'normal');
-    const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
-    const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
-    doc.text(`Report Period: ${fromDateFormatted} to ${toDateFormatted}`, 14, 28);
+    if (isFullReport) {
+      doc.text('Report Period: All Transactions', 14, 28);
+    } else {
+      const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
+      const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
+      doc.text(`Report Period: ${fromDateFormatted} to ${toDateFormatted}`, 14, 28);
+    }
     
     // Calculate totals
     let totalDebit = 0;
@@ -488,7 +509,14 @@ function CustomerDetail() {
     
     // Save PDF
     const reportType = includeDescription ? 'With_Description' : 'Without_Description';
-    const fileName = `${customer.name}_Report_${reportType}_${fromDateFormatted.replace(/\//g, '-')}_to_${toDateFormatted.replace(/\//g, '-')}.pdf`;
+    let fileName;
+    if (isFullReport) {
+      fileName = `${customer.name}_Full_Report_${reportType}.pdf`;
+    } else {
+      const fromDateFormatted = new Date(reportDateFrom).toLocaleDateString('en-GB');
+      const toDateFormatted = new Date(reportDateTo).toLocaleDateString('en-GB');
+      fileName = `${customer.name}_Report_${reportType}_${fromDateFormatted.replace(/\//g, '-')}_to_${toDateFormatted.replace(/\//g, '-')}.pdf`;
+    }
     doc.save(fileName);
     
     showNotification('Report generated successfully!', 'success');
@@ -1532,13 +1560,13 @@ function CustomerDetail() {
               <div className="p-6">
                 <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
                   <p className="text-sm text-blue-800">
-                    Select a date range to generate a PDF report of all transactions{customer ? ` for ${customer.name}` : ''}.
+                    Select a date range to generate a PDF report of all transactions{customer ? ` for ${customer.name}` : ''}. Leave dates empty to generate a full report with all transactions.
                   </p>
                 </div>
 
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    From Date
+                    From Date (Optional - leave empty for full report)
                   </label>
                   <input
                     type="date"
@@ -1560,9 +1588,9 @@ function CustomerDetail() {
                   )}
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    To Date
+                    To Date (Optional - leave empty for full report)
                   </label>
                   <input
                     type="date"
@@ -1583,6 +1611,22 @@ function CustomerDetail() {
                     </div>
                   )}
                 </div>
+
+                {(reportDateFrom || reportDateTo) && (
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReportDateFrom('');
+                        setReportDateTo('');
+                        setReportErrors({});
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Clear dates (generate full report)
+                    </button>
+                  </div>
+                )}
 
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <label className="flex items-center cursor-pointer">
