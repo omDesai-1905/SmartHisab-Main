@@ -359,6 +359,7 @@ function CustomerDetail() {
       // Prepare table data
       const tableData = filteredTransactions.map(transaction => {
         const date = new Date(transaction.date || transaction.createdAt).toLocaleDateString('en-GB');
+        // Preserve all characters including emojis and special symbols
         const description = transaction.description || 'NONE';
         const debit = transaction.type === 'debit' ? transaction.amount.toFixed(2) : '-';
         const credit = transaction.type === 'credit' ? transaction.amount.toFixed(2) : '-';
@@ -386,9 +387,13 @@ function CustomerDetail() {
         },
         columnStyles: {
           0: { halign: 'center', cellWidth: 30 },
-          1: { halign: 'left', cellWidth: 80 },
+          1: { halign: 'left', cellWidth: 80, cellPadding: 2 },
           2: { halign: 'right', cellWidth: 35 },
           3: { halign: 'right', cellWidth: 35 }
+        },
+        styles: {
+          overflow: 'linebreak',
+          cellWidth: 'wrap'
         },
         didParseCell: function(data) {
           if (data.row.index === tableData.length - 1) {
@@ -1002,7 +1007,7 @@ function CustomerDetail() {
                         </td>
                       )}
                       <td className="px-4 md:px-6 py-4 text-sm text-gray-900">{formatDate(transaction.date || transaction.createdAt)}</td>
-                      <td className="px-4 md:px-6 py-4 text-sm text-gray-900 hidden md:table-cell">{transaction.description || 'NONE'}</td>
+                      <td className="px-4 md:px-6 py-4 text-sm text-gray-900 hidden md:table-cell whitespace-pre-wrap break-words font-mono">{transaction.description || 'NONE'}</td>
                       <td className="px-4 md:px-6 py-4 text-sm font-semibold text-red-600">
                         {transaction.type === 'debit' ? formatAmount(transaction.amount) : '-'}
                       </td>
@@ -1346,7 +1351,10 @@ function CustomerDetail() {
                       border: '1px solid #e2e8f0',
                       fontSize: '0.875rem',
                       color: '#374151',
-                      fontStyle: selectedTransaction.description ? 'normal' : 'italic'
+                      fontStyle: selectedTransaction.description ? 'normal' : 'italic',
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word',
+                      fontFamily: 'monospace'
                     }}>
                       {selectedTransaction.description || 'No description provided'}
                     </div>
@@ -1507,7 +1515,7 @@ function CustomerDetail() {
 
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm font-semibold text-gray-600 mb-1">Description</div>
-                  <div className="text-lg text-gray-800">{selectedTransaction.description || 'NONE'}</div>
+                  <div className="text-lg text-gray-800 whitespace-pre-wrap break-words font-mono">{selectedTransaction.description || 'NONE'}</div>
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-4">

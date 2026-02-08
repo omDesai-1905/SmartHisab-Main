@@ -326,6 +326,7 @@ function Dashboard() {
           // Prepare table data
           const tableData = filteredTransactions.map(transaction => {
             const date = new Date(transaction.date || transaction.createdAt).toLocaleDateString('en-GB');
+            // Preserve all characters including emojis and special symbols
             const description = transaction.description || 'NONE';
             const debit = transaction.type === 'debit' ? transaction.amount.toFixed(2) : '-';
             const credit = transaction.type === 'credit' ? transaction.amount.toFixed(2) : '-';
@@ -354,9 +355,13 @@ function Dashboard() {
             },
             columnStyles: {
               0: { halign: 'center', cellWidth: 25 },
-              1: { halign: 'left', cellWidth: 85 },
+              1: { halign: 'left', cellWidth: 85, cellPadding: 2 },
               2: { halign: 'right', cellWidth: 30 },
               3: { halign: 'right', cellWidth: 30 }
+            },
+            styles: {
+              overflow: 'linebreak',
+              cellWidth: 'wrap'
             },
             didParseCell: function(data) {
               if (data.row.index === tableData.length - 1) {
