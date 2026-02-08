@@ -254,16 +254,20 @@ function Dashboard() {
 
       // Create PDF
       const doc = new jsPDF();
+      
+      // Set default font to Helvetica
+      doc.setFont('helvetica');
+      
       let startY = 20;
       
       // Add main title
       doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('All Customers Transaction Report', 14, startY);
       
       // Add date range
       doc.setFontSize(12);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       if (isFullReport) {
         doc.text('Report Period: All Transactions', 14, startY + 7);
       } else {
@@ -304,7 +308,7 @@ function Dashboard() {
 
           // Add customer name header
           doc.setFontSize(14);
-          doc.setFont(undefined, 'bold');
+          doc.setFont('helvetica', 'bold');
           
           // Calculate balance for this customer
           let totalDebit = 0;
@@ -318,7 +322,7 @@ function Dashboard() {
           
           doc.text(`Customer Name: ${customer.name}`, 14, startY);
           doc.setFontSize(10);
-          doc.setFont(undefined, 'normal');
+          doc.setFont('helvetica', 'normal');
           doc.text(`(${balanceText})`, 14, startY + 5);
 
           startY += 10;

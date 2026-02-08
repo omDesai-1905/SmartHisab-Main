@@ -323,14 +323,17 @@ function CustomerDetail() {
     // Create PDF
     const doc = new jsPDF();
     
+    // Set default font to Helvetica
+    doc.setFont('helvetica');
+    
     // Add title
     doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text(`Customer Name: ${customer.name}`, 14, 20);
     
     // Add date range subtitle
     doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     if (isFullReport) {
       doc.text('Report Period: All Transactions', 14, 28);
     } else {
@@ -351,10 +354,20 @@ function CustomerDetail() {
       }
     });
 
+    // Calculate balance
+    const balance = totalDebit - totalCredit;
+    const balanceAmount = Math.abs(balance).toFixed(2);
+    const balanceText = balance > 0 
+      ? `Debit - Credit = ${balanceAmount} (You will get)` 
+      : balance < 0 
+      ? `Debit - Credit = ${balanceAmount} (You will give)` 
+      : 'Debit - Credit = 0 (Settled)';
+
     if (includeDescription) {
       // WITH DESCRIPTION FORMAT - Single table with Date, Description, Debit, Credit
       doc.setFontSize(10);
-      doc.text('(Debit - Credit = You will get)', 14, 35);
+      doc.setFont('helvetica');
+      doc.text(`(${balanceText})`, 14, 35);
       
       // Prepare table data
       const tableData = filteredTransactions.map(transaction => {
@@ -383,7 +396,8 @@ function CustomerDetail() {
           halign: 'center'
         },
         bodyStyles: {
-          textColor: [0, 0, 0]
+          textColor: [0, 0, 0],
+          fontSize: 9
         },
         columnStyles: {
           0: { halign: 'center', cellWidth: 30 },
@@ -486,7 +500,7 @@ function CustomerDetail() {
       const finalY = doc.lastAutoTable.finalY + 15;
       
       doc.setFontSize(12);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       const balance = totalDebit - totalCredit;
       
       // Multi-line balance display
@@ -497,17 +511,17 @@ function CustomerDetail() {
       yPosition += 7;
       doc.text('_________________', 14, yPosition);
       yPosition += 7;
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text(Math.abs(balance).toFixed(2), 14, yPosition);
       
       // Add status text
       if (balance > 0) {
         doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.text('(You will give)', 14, yPosition + 7);
       } else if (balance < 0) {
         doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.text('(You will get)', 14, yPosition + 7);
       }
     }
