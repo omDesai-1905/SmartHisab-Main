@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './admin/AdminAuthContext';
+import { SocketProvider } from './context/SocketContext';
 import Signup from './components/Signup';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -12,7 +13,8 @@ import Profile from './components/Profile';
 import Analytics from './components/Analytics';
 import Cashbook from './components/Cashbook';
 import ContactUs from './components/ContactUs';
-import CustomerMessagesList from './components/CustomerMessagesList';
+import ChatList from './components/ChatList';
+import ChatWindow from './components/ChatWindow';
 import CustomerLogin from './customer/CustomerLogin';
 import CustomerPortal from './customer/CustomerPortal';
 import CustomerMessages from './customer/CustomerMessages';
@@ -48,10 +50,11 @@ function AdminPublicRoute({ children }) {
 function App() {
   return (
     <AuthProvider>
-      <AdminAuthProvider>
-        <Router>
-          <div className="App">
-            <Routes>
+      <SocketProvider>
+        <AdminAuthProvider>
+          <Router>
+            <div className="App">
+              <Routes>
               {/* User Routes */}
               <Route 
                 path="/" 
@@ -142,10 +145,18 @@ function App() {
                 } 
               />
               <Route 
-                path="/customer-messages" 
+                path="/messages" 
                 element={
                   <ProtectedRoute>
-                    <CustomerMessagesList />
+                    <ChatList />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/messages/chat/:customerId" 
+                element={
+                  <ProtectedRoute>
+                    <ChatWindow />
                   </ProtectedRoute>
                 } 
               />
@@ -201,6 +212,7 @@ function App() {
           </div>
         </Router>
       </AdminAuthProvider>
+      </SocketProvider>
     </AuthProvider>
   );
 }

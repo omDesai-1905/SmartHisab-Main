@@ -20,7 +20,7 @@ function Sidebar({ isOpen, onClose, currentPage = '' }) {
     { path: '/suppliers', label: 'Suppliers', icon: '🏢' },
     { path: '/analytics', label: 'Analytics', icon: '📊' },
     { path: '/cashbook', label: 'Cashbook', icon: '📖' },
-    { path: '/customer-messages', label: 'Customer Messages', icon: '💬' },
+    { path: '/messages', label: 'Messages', icon: '💬' },
     { path: '/profile', label: 'Profile', icon: '👤' },
     { path: '/contact', label: 'Contact Us', icon: '📞' }
   ];

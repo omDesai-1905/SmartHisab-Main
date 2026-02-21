@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import CustomerLayout from "./CustomerLayout";
@@ -6,13 +6,17 @@ import CustomerLayout from "./CustomerLayout";
 const CustomerMessages = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showMessageModal, setShowMessageModal] = useState(false);
   const [messageForm, setMessageForm] = useState({
-    subject: "",
     message: "",
-    type: "general"
+    type: "chat"
   });
   const navigate = useNavigate();
+  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("customerToken");
@@ -25,6 +29,10 @@ const CustomerMessages = () => {
     fetchMessages(token);
   }, [navigate]);
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   const fetchMessages = async (token) => {
     try {
       const response = await axios.get(
@@ -35,6 +43,7 @@ const CustomerMessages = () => {
           },
         }
       );
+      // Messages are already sorted by API (oldest first)
       setMessages(response.data.messages || []);
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -48,6 +57,9 @@ const CustomerMessages = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
+    
+    if (!messageForm.message.trim()) return;
+
     const token = localStorage.getItem("customerToken");
 
     try {
@@ -61,9 +73,7 @@ const CustomerMessages = () => {
         }
       );
 
-      alert("Message sent successfully!");
-      setShowMessageModal(false);
-      setMessageForm({ subject: "", message: "", type: "general" });
+      setMessageForm({ message: "", type: "chat" });
       fetchMessages(token);
     } catch (error) {
       console.error("Error sending message:", error);
@@ -86,178 +96,141 @@ const CustomerMessages = () => {
 
   return (
     <CustomerLayout currentPage="messages">
-      <div className="max-w-7xl mx-auto p-8">
-        <div className="bg-white rounded-xl p-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 m-0">
-              Messages
-            </h2>
-            <button
-              onClick={() => setShowMessageModal(true)}
-              className="bg-blue-800 text-white px-6 py-3 rounded-lg border-none font-semibold cursor-pointer text-[0.95rem] flex items-center gap-2 hover:bg-indigo-500 transition-colors"
+      <div className="flex flex-col h-[calc(100vh-80px)] bg-white">
+        {/* Chat Header */}
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-3 max-w-7xl mx-auto">
+            <button 
+              onClick={() => navigate('/customerpanel/dashboard')}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors border-none bg-transparent cursor-pointer"
             >
-              <span className="text-xl">+</span>
-              New Message
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
             </button>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-semibold text-lg">B</span>
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 m-0">Business Support</h2>
+            </div>
           </div>
+        </div>
 
+        {/* Messages Area */}
+        <div 
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto p-4 bg-[#f5f5f5]"
+        >
           {messages.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">💬</div>
-                <p className="text-xl text-gray-500 mb-2">
-                  No messages yet
-                </p>
-                <p className="text-gray-400 mb-8">
-                  Click "New Message" to contact your business owner
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {messages.map((msg) => (
-                  <div
-                    key={msg._id}
-                    className="p-6 border border-gray-200 rounded-xl bg-[#fafafa]"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-lg font-bold text-gray-800 m-0">
-                        {msg.subject}
-                      </h3>
-                      <div className="flex gap-2">
-                        <span
-                          className={`text-xs px-3 py-1.5 rounded-md font-bold ${
-                            msg.type === 'complaint' 
-                              ? 'bg-red-100 text-red-900' 
-                              : msg.type === 'dispute' 
-                              ? 'bg-orange-100 text-orange-900' 
-                              : 'bg-blue-100 text-blue-900'
-                          }`}
-                        >
-                          {msg.type.toUpperCase()}
-                        </span>
-                        <span
-                          className={`text-xs px-3 py-1.5 rounded-md font-bold ${
-                            msg.status === 'resolved' 
-                              ? 'bg-emerald-100 text-emerald-900' 
-                              : msg.status === 'in-progress' 
-                              ? 'bg-amber-100 text-amber-900' 
-                              : 'bg-gray-200 text-gray-700'
-                          }`}
-                        >
-                          {msg.status.toUpperCase()}
-                        </span>
+            <div className="text-center py-16">
+              <div className="text-6xl mb-4">💬</div>
+              <p className="text-xl text-gray-600 mb-2">
+                No messages yet
+              </p>
+              <p className="text-gray-500">
+                Start a conversation with your business owner
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1 max-w-4xl mx-auto">
+              {/* Today Label */}
+              {messages.length > 0 && (
+                <div className="flex justify-center mb-4">
+                  <span className="bg-white px-3 py-1 rounded-full text-xs text-gray-600 shadow-sm">
+                    Today
+                  </span>
+                </div>
+              )}
+              
+              {messages.map((msg) => {
+                const isCustomerMessage = msg.senderType === "customer";
+                
+                return (
+                  <div key={msg._id} className="mb-2">
+                    {isCustomerMessage ? (
+                      /* Customer's message (right side - sent) */
+                      <div className="flex justify-end">
+                        <div className="max-w-[70%]">
+                          <div className="bg-[#0084ff] text-white rounded-2xl px-4 py-2 shadow-sm">
+                            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                              {msg.message}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-end gap-1 mt-1 px-2">
+                            <span className="text-xs text-gray-500">
+                              {new Date(msg.createdAt).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 text-blue-500">
+                              <path fillRule="evenodd" d="M15.03 3.97a.75.75 0 0 1 0 1.06l-8.5 8.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06L6 11.94l7.97-7.97a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-[0.95rem] text-gray-600 m-0 mb-4 leading-relaxed">
-                      {msg.message}
-                    </p>
-                    <p className="text-[0.85rem] text-gray-400 m-0">
-                      📅 {new Date(msg.createdAt).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                      })} at {new Date(msg.createdAt).toLocaleTimeString('en-GB', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                    {msg.reply && (
-                      <div className="mt-4 p-4 bg-blue-100 rounded-lg border-l-4 border-blue-500">
-                        <p className="text-[0.85rem] font-bold text-blue-900 m-0 mb-2">
-                          💬 Reply from Business Owner:
-                        </p>
-                        <p className="text-[0.95rem] text-blue-950 m-0 leading-relaxed">
-                          {msg.reply}
-                        </p>
+                    ) : (
+                      /* Business owner's message (left side - received) */
+                      <div className="flex justify-start">
+                        <div className="max-w-[70%]">
+                          <div className="bg-white text-gray-900 rounded-2xl px-4 py-2 shadow-sm">
+                            <p className="text-xs font-semibold text-blue-600 mb-1">
+                              Business Owner
+                            </p>
+                            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                              {msg.message}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1 px-2">
+                            {new Date(msg.createdAt).toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
-        </div>
-      </div>
-
-      {/* Message Modal */}
-      {showMessageModal && (
-        <div
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[1000] p-4"
-          onClick={() => setShowMessageModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-[600px] w-full max-h-[90vh] overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-sky-100 text-sky-900 p-6 rounded-t-2xl">
-              <h3 className="text-2xl font-bold m-0">Send New Message</h3>
-              <p className="opacity-90 mt-2 mb-0">Contact your business owner</p>
+                );
+              })}
+              <div ref={messagesEndRef} />
             </div>
+          )}
+        </div>
 
-            <form onSubmit={handleSendMessage} className="p-6">
-              <div className="mb-6">
-                <label className="block font-semibold text-gray-700 mb-2">
-                  Message Type
-                </label>
-                <select
-                  value={messageForm.type}
-                  onChange={(e) => setMessageForm({ ...messageForm, type: e.target.value })}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  required
-                >
-                  <option value="general">General Inquiry</option>
-                  <option value="complaint">Complaint</option>
-                  <option value="dispute">Transaction Dispute</option>
-                </select>
-              </div>
-
-              <div className="mb-6">
-                <label className="block font-semibold text-gray-700 mb-2">
-                  Subject
-                </label>
+        {/* Input Area */}
+        <div className="bg-white border-t border-gray-200 p-4">
+          <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
+            <div className="flex gap-3 items-center">
+              {/* Message input */}
+              <div className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 flex items-center">
                 <input
                   type="text"
-                  value={messageForm.subject}
-                  onChange={(e) => setMessageForm({ ...messageForm, subject: e.target.value })}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Brief description"
-                  required
-                />
-              </div>
-
-              <div className="mb-6">
-                <label className="block font-semibold text-gray-700 mb-2">
-                  Message
-                </label>
-                <textarea
                   value={messageForm.message}
                   onChange={(e) => setMessageForm({ ...messageForm, message: e.target.value })}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base outline-none resize-y min-h-[120px] focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Write your message here..."
-                  required
+                  placeholder="Type a message..."
+                  className="flex-1 outline-none text-sm bg-transparent text-gray-900 placeholder-gray-500"
                 />
               </div>
 
-              <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowMessageModal(false);
-                    setMessageForm({ subject: "", message: "", type: "general" });
-                  }}
-                  className="flex-1 px-3.5 py-3.5 border-2 border-gray-300 rounded-lg bg-white text-gray-700 font-semibold cursor-pointer text-base hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className=" bg-sky-500 flex-1 px-3.5 py-3.5 border-none rounded-lg bg-blue-500 text-white font-semibold cursor-pointer text-base hover:bg-blue-600 transition-colors"
-                >
-                  Send Message
-                </button>
-              </div>
-            </form>
-          </div>
+              {/* Send button */}
+              <button
+                type="submit"
+                disabled={!messageForm.message.trim()}
+                className="w-10 h-10 bg-[#0084ff] text-white rounded-full hover:bg-[#0073e6] transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed border-none flex items-center justify-center"
+                title="Send Message"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                  <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                </svg>
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </div>
     </CustomerLayout>
   );
 };

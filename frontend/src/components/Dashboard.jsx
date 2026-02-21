@@ -318,7 +318,7 @@ function Dashboard() {
             else totalCredit += tx.amount;
           });
           const balance = totalDebit - totalCredit;
-          const balanceText = balance > 0 ? `Debit - Credit = ${Math.abs(balance).toFixed(2)} (You will get)` : balance < 0 ? `Debit - Credit = ${Math.abs(balance).toFixed(2)} (You will give)` : 'Debit - Credit = 0 (Settled)';
+          const balanceText = balance > 0 ? `${totalDebit.toFixed(2)} - ${totalCredit.toFixed(2)} = ${Math.abs(balance).toFixed(2)} (You will get)` : balance < 0 ? `${totalDebit.toFixed(2)} - ${totalCredit.toFixed(2)} = ${Math.abs(balance).toFixed(2)} (You will give)` : `${totalDebit.toFixed(2)} - ${totalCredit.toFixed(2)} = 0 (Settled)`;
           
           doc.text(`Customer Name: ${customer.name}`, 14, startY);
           doc.setFontSize(10);

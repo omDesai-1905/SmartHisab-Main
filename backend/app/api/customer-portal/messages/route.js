@@ -10,7 +10,7 @@ export async function GET(request) {
     if (!authResult.authenticated) {
       return NextResponse.json(
         { message: authResult.message },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -18,8 +18,12 @@ export async function GET(request) {
 
     const customerId = authResult.customer.customerId;
 
-    const messages = await CustomerMessage.find({ customerId }).sort({
-      createdAt: -1,
+    // Fetch all messages for this customer (chat conversation)
+    const messages = await CustomerMessage.find({
+      customerId,
+      type: "chat",
+    }).sort({
+      createdAt: 1, // Oldest first for chat display
     });
 
     return NextResponse.json({ messages });
@@ -27,7 +31,7 @@ export async function GET(request) {
     console.error("Error fetching messages:", error);
     return NextResponse.json(
       { message: "Server error", error: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -38,7 +42,7 @@ export async function POST(request) {
     if (!authResult.authenticated) {
       return NextResponse.json(
         { message: authResult.message },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -52,7 +56,7 @@ export async function POST(request) {
     if (!customer) {
       return NextResponse.json(
         { message: "Customer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -63,7 +67,9 @@ export async function POST(request) {
       userEmail: customer.userEmail,
       subject,
       message,
-      type: type || "general",
+      type: type || "chat",
+      senderType: "customer",
+      senderId: customer._id,
     });
 
     await newMessage.save();
@@ -73,13 +79,13 @@ export async function POST(request) {
         message: "Message sent successfully to the business owner",
         data: newMessage,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error sending message:", error);
     return NextResponse.json(
       { message: "Server error", error: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

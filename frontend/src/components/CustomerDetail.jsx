@@ -358,10 +358,10 @@ function CustomerDetail() {
     const balance = totalDebit - totalCredit;
     const balanceAmount = Math.abs(balance).toFixed(2);
     const balanceText = balance > 0 
-      ? `Debit - Credit = ${balanceAmount} (You will get)` 
+      ? `${totalDebit.toFixed(2)} - ${totalCredit.toFixed(2)} = ${balanceAmount} (You will get)` 
       : balance < 0 
-      ? `Debit - Credit = ${balanceAmount} (You will give)` 
-      : 'Debit - Credit = 0 (Settled)';
+      ? `${totalDebit.toFixed(2)} - ${totalCredit.toFixed(2)} = ${balanceAmount} (You will give)` 
+      : `${totalDebit.toFixed(2)} - ${totalCredit.toFixed(2)} = 0 (Settled)`;
 
     if (includeDescription) {
       // WITH DESCRIPTION FORMAT - Single table with Date, Description, Debit, Credit

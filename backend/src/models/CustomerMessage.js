@@ -26,16 +26,27 @@ const customerMessageSchema = new mongoose.Schema(
     },
     subject: {
       type: String,
-      required: true,
+      required: false, // Made optional for chat messages
     },
     message: {
       type: String,
       required: true,
     },
+    // Chat specific fields
+    senderType: {
+      type: String,
+      enum: ["user", "customer"],
+      required: true,
+      default: "customer",
+    },
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
     type: {
       type: String,
-      enum: ["dispute", "general", "complaint"],
-      default: "general",
+      enum: ["dispute", "general", "complaint", "chat"],
+      default: "chat",
     },
     status: {
       type: String,
@@ -49,7 +60,7 @@ const customerMessageSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const CustomerMessage =
