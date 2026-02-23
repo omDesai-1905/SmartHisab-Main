@@ -365,51 +365,42 @@ function SupplierDetail() {
   return (
     <Layout currentPage="/suppliers">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {/* Header and Summary Cards in One Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-          {/* Back Button and Supplier Info */}
-          <div className="flex flex-col justify-between">
-            <button
-              onClick={() => navigate('/suppliers')}
-              className="mb-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors inline-flex items-center gap-2 w-fit"
-            >
-              ← Back to Suppliers
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 mb-1">{supplier.name}</h1>
-              <p className="text-gray-600">{supplier.phone}</p>
-            </div>
+        {/* Header and Supplier Info */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/suppliers')}
+            className="mb-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors inline-flex items-center gap-2 w-fit"
+          >
+            ← Back to Suppliers
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-1">{supplier.name}</h1>
+            <p className="text-gray-600">{supplier.phone}</p>
           </div>
+        </div>
 
-          {/* Total Debit Card */}
-          <div className="bg-red-100 border-2 border-red-500 rounded-2xl p-6 shadow-lg">
-            <div className="text-base font-medium text-gray-600 mb-2">Total Debit (You Gave)</div>
-            <div className="text-3xl font-bold text-red-600">{formatAmount(totalDebit)}</div>
+        {/* Summary without boxes */}
+        <div className="mb-6 text-lg">
+          <div className="mb-2">
+            <span className="font-semibold text-gray-700">Total Debit: </span>
+            <span className="font-bold text-red-600">{formatAmount(totalDebit)}</span>
           </div>
-
-          {/* Total Credit Card */}
-          <div className="bg-green-100 border-2 border-green-500 rounded-2xl p-6 shadow-lg">
-            <div className="text-base font-medium text-gray-600 mb-2">Total Credit (You Got)</div>
-            <div className="text-3xl font-bold text-green-600">{formatAmount(totalCredit)}</div>
+          <div className="mb-2">
+            <span className="font-semibold text-gray-700">Total Credit: </span>
+            <span className="font-bold text-green-600">{formatAmount(totalCredit)}</span>
           </div>
-
-          {/* Net Balance Card */}
-          <div className={`border-2 rounded-2xl p-6 shadow-lg ${
-            balance > 0 ? 'bg-red-100 border-red-500' :
-            balance < 0 ? 'bg-green-100 border-green-500' :
-            'bg-gray-100 border-gray-500'
-          }`}>
-            <div className="text-base font-medium text-gray-600 mb-2">Net Balance</div>
-            <div className={`text-3xl font-bold ${
+          <div>
+            <span className="font-semibold text-gray-700">Balance (Debit - Credit): </span>
+            <span className={`font-bold ${
               balance > 0 ? 'text-red-600' :
               balance < 0 ? 'text-green-600' :
               'text-gray-600'
             }`}>
               {formatAmount(Math.abs(balance))}
-            </div>
-            <div className="text-sm font-medium text-gray-600 mt-1">
+            </span>
+            <span className="text-sm font-medium text-gray-600 ml-2">
               {balance > 0 ? '(You Owe)' : balance < 0 ? '(They Owe)' : '(Settled)'}
-            </div>
+            </span>
           </div>
         </div>
 
