@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from './Layout';
 import Notification from './Notification';
+import TransactionModal from './TransactionModal';
 import axios from 'axios';
 
 function Cashbook() {
@@ -18,17 +19,6 @@ function Cashbook() {
     description: '',
     date: new Date().toISOString().split('T')[0]
   });
-  // Helper to sanitize numeric amount input (allow digits and one decimal point)
-  const sanitizeNumericInput = (val) => {
-    if (typeof val !== 'string') val = String(val || '');
-    let s = val.replace(/,/g, '').replace(/[^0-9.]/g, '');
-    const parts = s.split('.');
-    if (parts.length > 2) {
-      s = parts[0] + '.' + parts.slice(1).join('');
-    }
-    return s;
-  };
-  const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -144,36 +134,14 @@ function Cashbook() {
     }
   };
 
-  const validateEntry = () => {
-    const newErrors = {};
-    const sanitized = sanitizeNumericInput(newEntry.amount);
-
-    if (!sanitized || isNaN(parseFloat(sanitized)) || parseFloat(sanitized) <= 0) {
-      newErrors.amount = 'Amount must be greater than 0';
-    }
-    
-    // Description is now optional - no validation required
-    
-    if (!newEntry.date) {
-      newErrors.date = 'Date is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateEntry()) return;
-    
+  const handleModalSubmit = async (formData) => {
     setSubmitting(true);
     try {
       const entryData = {
-        ...newEntry,
-        description: newEntry.description.trim() || 'NONE',
+        ...formData,
+        description: formData.description.trim() || 'NONE',
         type: entryType,
-        amount: parseFloat(sanitizeNumericInput(newEntry.amount))
+        amount: parseFloat(formData.amount)
       };
 
       if (editingEntry) {
@@ -195,13 +163,22 @@ function Cashbook() {
         description: '',
         date: new Date().toISOString().split('T')[0]
       });
-      setErrors({});
     } catch (error) {
       console.error('Error saving entry:', error);
       showNotification('Error saving entry', 'error');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+    setEditingEntry(null);
+    setNewEntry({
+      amount: '',
+      description: '',
+      date: new Date().toISOString().split('T')[0]
+    });
   };
 
   const handleEdit = (entry) => {
@@ -506,100 +483,16 @@ function Cashbook() {
           )}
         </div>
 
-        {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" onClick={() => setShowModal(false)}>
-            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  {editingEntry ? 'Edit' : 'Add'} {entryType === 'income' ? 'Income' : 'Expense'} Entry
-                </h2>
-                <button
-                  className="text-4xl text-gray-400 hover:text-gray-600 leading-none transition-colors"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingEntry(null);
-                    setNewEntry({
-                      amount: '',
-                      description: '',
-                      date: new Date().toISOString().split('T')[0]
-                    });
-                    setErrors({});
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-6">
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
-                  <input
-                    type="date"
-                    value={newEntry.date}
-                    onChange={(e) => {
-                      setNewEntry(prev => ({ ...prev, date: e.target.value }));
-                      if (errors.date) setErrors(prev => ({ ...prev, date: '' }));
-                    }}
-                    className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary ${
-                      errors.date ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors.date && <div className="text-red-600 text-sm mt-1">{errors.date}</div>}
-                </div>
-
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Amount (₹)</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={newEntry.amount}
-                    onChange={(e) => {
-                      const sanitized = sanitizeNumericInput(e.target.value);
-                      setNewEntry(prev => ({ ...prev, amount: sanitized }));
-                      if (errors.amount) setErrors(prev => ({ ...prev, amount: '' }));
-                    }}
-                    className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary ${
-                      errors.amount ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  {errors.amount && <div className="text-red-600 text-sm mt-1">{errors.amount}</div>}
-                </div>
-
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Description (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Enter description (optional)..."
-                    value={newEntry.description}
-                    onChange={(e) => setNewEntry(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                <div className="flex gap-4 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className={`px-6 py-2 font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed ${
-                      entryType === 'income' ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'
-                    }`}
-                  >
-                    {submitting ? (editingEntry ? 'Updating...' : 'Adding...') :
-                     `${editingEntry ? 'Update' : 'Add'} ${entryType === 'income' ? 'Income' : 'Expense'}`}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <TransactionModal
+          show={showModal}
+          onClose={handleModalClose}
+          onSubmit={handleModalSubmit}
+          initialData={newEntry}
+          type={entryType}
+          mode={editingEntry ? 'edit' : 'add'}
+          context="cashbook"
+          submitting={submitting}
+        />
 
         {showConfirmDelete && entryToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" onClick={() => setShowConfirmDelete(false)}>

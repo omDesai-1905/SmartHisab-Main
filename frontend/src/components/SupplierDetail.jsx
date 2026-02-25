@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from './Layout';
 import Notification from './Notification';
+import TransactionModal from './TransactionModal';
 import axios from 'axios';
 
 function SupplierDetail() {
@@ -21,16 +22,6 @@ function SupplierDetail() {
     description: '', 
     date: new Date().toISOString().split('T')[0]
   });
-
-  const sanitizeNumericInput = (val) => {
-    if (typeof val !== 'string') val = String(val || '');
-    let s = val.replace(/,/g, '').replace(/[^0-9.]/g, '');
-    const parts = s.split('.');
-    if (parts.length > 2) {
-      s = parts[0] + '.' + parts.slice(1).join('');
-    }
-    return s;
-  };
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -173,50 +164,20 @@ function SupplierDetail() {
     }
   };
 
-  const validateTransactionForm = () => {
-    const newErrors = {};
-    const sanitizedAmount = sanitizeNumericInput(newTransaction.amount);
-
-    if (!sanitizedAmount || isNaN(parseFloat(sanitizedAmount)) || parseFloat(sanitizedAmount) <= 0) {
-      newErrors.amount = 'Amount must be a positive number';
-    }
-
-    if (!newTransaction.date) {
-      newErrors.date = 'Date is required';
-    } else {
-      const selectedDate = new Date(newTransaction.date);
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      
-      if (selectedDate > today) {
-        newErrors.date = 'Date cannot be in the future';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleTransactionSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateTransactionForm()) {
-      return;
-    }
-
+  const handleModalSubmit = async (formData) => {
     setSubmitting(true);
 
     try {
       let response;
-      const description = newTransaction.description.trim() || 'NONE';
-      const amount = parseFloat(sanitizeNumericInput(newTransaction.amount));
+      const description = formData.description.trim() || 'NONE';
+      const amount = parseFloat(formData.amount);
       
       if (modalType === 'add') {
         response = await axios.post(`/api/suppliers/${id}/transactions`, {
           type: transactionType,
           amount: amount,
           description: description,
-          date: newTransaction.date
+          date: formData.date
         });
 
         setTransactions(prev => {
@@ -233,7 +194,7 @@ function SupplierDetail() {
           type: transactionType,
           amount: amount,
           description: description,
-          date: newTransaction.date
+          date: formData.date
         });
 
         setTransactions(prev => {
@@ -258,7 +219,6 @@ function SupplierDetail() {
         date: new Date().toISOString().split('T')[0] 
       });
       setSelectedTransaction(null);
-      setErrors({});
       setShowModal(false);
     } catch (error) {
       console.error('Error saving transaction:', error);
@@ -266,6 +226,16 @@ function SupplierDetail() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+    setNewTransaction({ 
+      amount: '', 
+      description: '', 
+      date: new Date().toISOString().split('T')[0] 
+    });
+    setSelectedTransaction(null);
   };
 
   const openTransactionModal = (type) => {
@@ -276,7 +246,6 @@ function SupplierDetail() {
       description: '', 
       date: new Date().toISOString().split('T')[0] 
     });
-    setErrors({});
     setShowModal(true);
   };
 
@@ -289,7 +258,6 @@ function SupplierDetail() {
       description: transaction.description === 'NONE' ? '' : transaction.description,
       date: transaction.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
     });
-    setErrors({});
     setShowModal(true);
   };
 
@@ -546,112 +514,16 @@ function SupplierDetail() {
         </div>
 
         {/* Add/Edit Transaction Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {modalType === 'add' ? 'Add' : 'Edit'} {transactionType === 'debit' ? 'Debit' : 'Credit'} Transaction
-                </h2>
-                <button
-                  className="text-4xl text-gray-400 hover:text-gray-600 leading-none transition-colors"
-                  onClick={() => {
-                    setShowModal(false);
-                    setNewTransaction({ amount: '', description: '', date: new Date().toISOString().split('T')[0] });
-                    setErrors({});
-                    setSelectedTransaction(null);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-
-              <form onSubmit={handleTransactionSubmit} className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Amount *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter amount"
-                      value={newTransaction.amount}
-                      onChange={(e) => {
-                        const sanitized = sanitizeNumericInput(e.target.value);
-                        setNewTransaction({ ...newTransaction, amount: sanitized });
-                        if (errors.amount) setErrors({ ...errors, amount: '' });
-                      }}
-                      className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-4 focus:ring-primary/20 outline-none transition-all ${
-                        errors.amount ? 'border-red-500' : 'border-gray-200 focus:border-primary'
-                      }`}
-                    />
-                    {errors.amount && (
-                      <p className="mt-1 text-sm text-red-600">{errors.amount}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      placeholder="Enter description (optional)"
-                      value={newTransaction.description}
-                      onChange={(e) => {
-                        setNewTransaction({ ...newTransaction, description: e.target.value });
-                      }}
-                      rows={3}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-primary focus:ring-4 focus:ring-primary/20 outline-none transition-all resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Date *
-                    </label>
-                    <input
-                      type="date"
-                      value={newTransaction.date}
-                      onChange={(e) => {
-                        setNewTransaction({ ...newTransaction, date: e.target.value });
-                        if (errors.date) setErrors({ ...errors, date: '' });
-                      }}
-                      max={new Date().toISOString().split('T')[0]}
-                      className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-4 focus:ring-primary/20 outline-none transition-all ${
-                        errors.date ? 'border-red-500' : 'border-gray-200 focus:border-primary'
-                      }`}
-                    />
-                    {errors.date && (
-                      <p className="mt-1 text-sm text-red-600">{errors.date}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      setNewTransaction({ amount: '', description: '', date: new Date().toISOString().split('T')[0] });
-                      setErrors({});
-                      setSelectedTransaction(null);
-                    }}
-                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-dark font-medium rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {submitting ? 'Saving...' : modalType === 'add' ? 'Add Transaction' : 'Update'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <TransactionModal
+          show={showModal}
+          onClose={handleModalClose}
+          onSubmit={handleModalSubmit}
+          initialData={newTransaction}
+          type={transactionType}
+          mode={modalType}
+          context="supplier"
+          submitting={submitting}
+        />
 
         {/* Transaction Detail Modal */}
         {showDetailModal && selectedTransaction && (
