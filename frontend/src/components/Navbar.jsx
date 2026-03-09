@@ -24,7 +24,7 @@ function Navbar({ onToggleSidebar }) {
               </button>
             )}
             <img 
-              src="/SmartHisabLogo1.png" 
+              src="/SmartHisabLogo2.png" 
               alt="SmartHisab" 
               className="h-12 w-auto object-contain"
             />
