@@ -75,11 +75,9 @@ function Analytics() {
       let totalCredit = 0;
 
       suppliersData.forEach(supplier => {
-        if (supplier.balance > 0) {
-          totalDebit += supplier.balance; // Positive balance means we owe them
-        } else {
-          totalCredit += Math.abs(supplier.balance); // Negative balance means they owe us
-        }
+        // Accumulate total debit and credit from each supplier's transactions
+        totalDebit += supplier.totalDebit || 0;
+        totalCredit += supplier.totalCredit || 0;
       });
 
       const netBalance = totalDebit - totalCredit;

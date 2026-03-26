@@ -10,7 +10,7 @@ export async function GET(request) {
     if (!authResult.authenticated) {
       return NextResponse.json(
         { message: authResult.message },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -24,20 +24,25 @@ export async function GET(request) {
           supplierId: supplier._id,
         });
 
-        let balance = 0;
+        let totalDebit = 0;
+        let totalCredit = 0;
         transactions.forEach((transaction) => {
           if (transaction.type === "debit") {
-            balance += transaction.amount;
+            totalDebit += transaction.amount;
           } else {
-            balance -= transaction.amount;
+            totalCredit += transaction.amount;
           }
         });
+
+        const balance = totalDebit - totalCredit;
 
         return {
           ...supplier.toObject(),
           balance,
+          totalDebit,
+          totalCredit,
         };
-      })
+      }),
     );
 
     return NextResponse.json(suppliersWithBalance);
@@ -45,7 +50,7 @@ export async function GET(request) {
     console.error("Error fetching suppliers:", error);
     return NextResponse.json(
       { message: "Server error", error: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -56,7 +61,7 @@ export async function POST(request) {
     if (!authResult.authenticated) {
       return NextResponse.json(
         { message: authResult.message },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -84,13 +89,13 @@ export async function POST(request) {
         balance: 0,
         message: "Supplier created successfully",
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error creating supplier:", error);
     return NextResponse.json(
       { message: "Server error", error: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
